@@ -1,0 +1,125 @@
+{
+  "@@locale": "ar",
+  "appName": "QuickPlay",
+  "searchDramas": "ابحث عن الدراما...",
+  "noResultsFound": "لا توجد نتائج",
+  "history": "السجل",
+  "episodes": "الحلقات",
+  "ep": "حلقة",
+  "lastWatched": "آخر مشاهدة: الحلقة {epNum}",
+  "@lastWatched": {
+    "placeholders": {
+      "epNum": {
+        "type": "int"
+      }
+    }
+  },
+  "fetchingEpisodes": "جارٍ تحميل الحلقات...",
+  "thisMayTake": "قد يستغرق ذلك لحظة حسب سرعة اتصالك.",
+  "back": "رجوع",
+  "retry": "إعادة المحاولة",
+  "videoDecryptionFailed": "فشل فك تشفير الفيديو. حاول مرة أخرى.",
+  "keepTrack": "تابع دراماك المفضلة",
+  "emptyHistory": "سيظهر سجل مشاهدتك هنا. ابدأ بمشاهدة الدراما لتتبع مكان توقفت فيه!",
+  "sectionForYou": "من أجلك",
+  "sectionLatest": "الأحدث",
+  "sectionTrending": "الأكثر رواجاً",
+  "sectionVip": "VIP",
+  "settings": "الإعدادات",
+  "platforms": "المنصات",
+  "specialDubbed": "مدبلج",
+  "specialAdult": "18+",
+  "similarOnPlatforms": "مشابه على منصات أخرى",
+  "similarSectionHint": "إظهار دراما مشابهة متاحة على منصات أخرى.",
+  "scanningPlatforms": "جارٍ فحص المنصات...",
+  "profile": "الملف الشخصي",
+  "language": "اللغة",
+  "english": "الإنجليزية",
+  "arabic": "العربية",
+  "about": "حول التطبيق",
+  "version": "الإصدار {version}",
+  "@version": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "checkingUpdates": "جارٍ التحقق من التحديثات... ({version})",
+  "@checkingUpdates": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadingPatch": "جارٍ تنزيل التحديث... ({version})",
+  "@downloadingPatch": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateReady": "التحديث جاهز! أعد تشغيل التطبيق لتفعيله.",
+  "updateFailed": "فشل التحديث",
+  "serverUnavailable": "الخادم غير متاح",
+  "serverBlockedMessage": "يقوم خادم API بحظر الطلبات مؤقتاً بسبب الازدحام. يرجى الانتظار قليلاً ثم حاول مرة أخرى.",
+  "episodesCount": "{count} حلقات",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "episodesTab": "الحلقات",
+  "descriptionTab": "الوصف",
+  "speedPlaying": "تشغيل بسرعة 1.5x",
+  "subtitles": "الترجمة",
+  "subtitleOff": "إيقاف الترجمة",
+  "videoUrlEmpty": "رابط الفيديو فارغ",
+  "search": "بحث",
+  "myList": "قائمتي",
+  "watchHistory": "سجل المشاهدة",
+  "theme": "المظهر",
+  "themeDark": "داكن",
+  "themeLight": "فاتح",
+  "themeSystem": "تلقائي",
+  "searchHint": "اكتب عنوان الدراما للبحث في جميع المزودين",
+  "emptyMyList": "ستظهر الدراما التي تضيفها إلى قائمتك هنا",
+  "continueWatching": "متابعة المشاهدة",
+  "play": "تشغيل",
+  "downloads": "التنزيلات",
+  "download": "تنزيل",
+  "emptyDownloads": "ستظهر الحلقات التي تنزلها هنا. نزّل الحلقات من صفحة الدراما لمشاهدتها دون اتصال.",
+  "downloadPaused": "متوقف مؤقتاً",
+  "downloadFailed": "فشل التنزيل",
+  "downloadCompleted": "تم التنزيل",
+  "downloadQueued": "في قائمة الانتظار",
+  "pause": "إيقاف مؤقت",
+  "resume": "استئناف",
+  "cancel": "إلغاء",
+  "deleteDownload": "حذف التنزيل",
+  "deleteDownloadConfirm": "حذف هذا التنزيل؟",
+  "downloadAllTooltip": "تنزيل جميع الحلقات",
+  "downloadsQueued": "تمت إضافة {count} حلقة إلى قائمة الانتظار",
+  "@downloadsQueued": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "comingSoon": "قريباً",
+  "episodeNotAvailable": "هذه الحلقة غير متاحة بعد، حاول مرة أخرى لاحقاً",
+  "adultContent": "محتوى الكبار",
+  "adultContentHint": "إظهار منصة 18+ في شريط الرئيسية. يتطلب فتحها رمزاً.",
+  "enterCode": "أدخل الرمز",
+  "wrongCode": "الرمز غير صحيح. حاول مرة أخرى.",
+  "unlockAdultContent": "فتح محتوى الكبار",
+  "lockAdultContent": "قفل محتوى الكبار",
+  "unlocked": "مفتوح",
+  "locked": "مقفل",
+  "confirm": "تأكيد"
+}

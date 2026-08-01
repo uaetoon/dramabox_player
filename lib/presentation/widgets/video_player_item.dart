@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:dramabox_free/core/localization/app_localizations.dart';
 import 'package:dramabox_free/data/models/drama_model.dart';
 import 'package:dramabox_free/presentation/widgets/drama_details_sheet.dart';
 import 'package:cached_video_player_plus/cached_video_player_plus.dart';
@@ -11,10 +13,10 @@ import 'package:dramabox_free/data/models/episode_model.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dramabox_free/core/services/video_proxy_service.dart';
+import 'package:dramabox_free/core/services/download_service.dart';
 import 'package:dramabox_free/core/di/injection_container.dart' as di;
 import 'package:dramabox_free/presentation/cubits/video_control_cubit.dart';
 import 'package:dramabox_free/core/constants/app_enums.dart';
-import 'package:dramabox_free/domain/repositories/drama_repository.dart';
 import 'video_gesture_overlay.dart';
 
 class VideoPlayerItem extends StatefulWidget {
@@ -41,6 +43,13 @@ class VideoPlayerItem extends StatefulWidget {
   final Function(int) onEpisodeSelected;
   final AppContentProvider provider;
 
+  /// True 1-based episode number. Falls back to [index] + 1 when null
+  /// (used when a downloaded subset of episodes is played).
+  final int? episodeNumber;
+
+  /// True total episode count. Falls back to [episodes].length when null.
+  final int? totalEpisodes;
+
   const VideoPlayerItem({
     super.key,
     required this.episode,
@@ -58,6 +67,8 @@ class VideoPlayerItem extends StatefulWidget {
     required this.episodes,
     required this.onEpisodeSelected,
     required this.provider,
+    this.episodeNumber,
+    this.totalEpisodes,
   });
 
   @override
@@ -113,11 +124,13 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
 
   void _initializeController() async {
     if (_isInitializing) return;
-    if (widget.episode.videoUrl.isEmpty) {
+      if (widget.episode.videoUrl.isEmpty) {
       if (mounted) {
         setState(() {
           _hasError = true;
-          _errorMessage = "Video URL is empty";
+          _errorMessage = widget.episode.isPlayable
+              ? AppStrings.videoUrlEmpty(context)
+              : AppStrings.episodeNotAvailable(context);
         });
       }
       return;
@@ -132,56 +145,68 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
     }
 
     try {
-      String videoUrl = widget.episode.videoUrl;
-
-      // Handle Dramabox decryption
-      if (widget.provider == AppContentProvider.dramabox) {
-        // Only decrypt if it's not already a decrypted stream URL
-        if (!videoUrl.contains('api.sansekai.my.id')) {
-          try {
-            final decrypted = await di.sl<DramaRepository>().decryptVideoUrl(
-              videoUrl,
-            );
-            if (decrypted.isNotEmpty && decrypted.startsWith('http')) {
-              videoUrl = decrypted;
-            } else {
-              throw Exception(
-                "Valid stream URL not received from decryption API",
-              );
-            }
-          } catch (e) {
-            debugPrint("Error decrypting video url: $e");
-            if (mounted) {
-              setState(() {
-                _hasError = true;
-                _errorMessage = 'Video decryption failed. Please try again.';
-                _isInitializing = false;
-              });
-            }
-            return;
-          }
+      // Downloaded episodes play straight from local storage (no proxy, no
+      // faststart reassembly needed since local reads are cheap).
+      File? localFile;
+      final downloadService = di.sl<DownloadService>();
+      final localItem = await downloadService.getDownloadedItem(
+        widget.drama.bookId,
+        widget.episode.chapterId,
+      );
+      if (localItem?.filePath != null) {
+        final candidate = File(localItem!.filePath!);
+        if (await candidate.exists()) {
+          localFile = candidate;
         }
       }
 
-      // Proxy URLs
-      videoUrl = di.sl<VideoProxyService>().getProxyUrl(videoUrl);
+      CachedVideoPlayerPlus? player;
+      if (localFile != null) {
+        debugPrint('DIAG playing downloaded file for ${widget.episode.chapterId}');
+        player = CachedVideoPlayerPlus.file(localFile);
+      } else {
+        String videoUrl = widget.episode.videoUrl;
 
-      // Check if we have a valid URL before proceeding
-      if (videoUrl.isEmpty || !videoUrl.startsWith('http')) {
-        throw Exception("Invalid video URL");
+        // Narto episodes are non-faststart MP4s (moov atom at the end) that
+        // ExoPlayer cannot stream progressively, so the proxy reassembles them
+        // into a faststart layout via &faststart=1. The await guarantees the
+        // reassembly is finished before the player connects, so the first
+        // request is served headers immediately (ExoPlayer would otherwise time
+        // out waiting while the proxy downloads the file head/tail).
+        videoUrl = await di.sl<VideoProxyService>().getProxyUrl(
+          videoUrl,
+          faststart: true,
+        );
+
+        // Check if we have a valid URL before proceeding
+        if (videoUrl.isEmpty || !videoUrl.startsWith('http')) {
+          throw Exception("Invalid video URL");
+        }
+
+        player = CachedVideoPlayerPlus.networkUrl(
+          Uri.parse(videoUrl),
+          // Narto episodes are large full-length direct MP4s; skip the full-file
+          // background cache download to avoid disk/bandwidth exhaustion.
+          skipCache: true,
+          invalidateCacheIfOlderThan: const Duration(days: 7),
+        );
       }
 
-      _player = CachedVideoPlayerPlus.networkUrl(
-        Uri.parse(videoUrl),
-        invalidateCacheIfOlderThan: const Duration(days: 7),
+      _player = player;
+
+      final playerRef = _player;
+      if (playerRef == null) return;
+
+      await playerRef.initialize();
+      playerRef.controller.setLooping(false);
+      playerRef.controller.addListener(_videoListener);
+      debugPrint(
+        'DIAG initialized: dur=${playerRef.controller.value.duration.inMilliseconds} '
+        'pos=${playerRef.controller.value.position.inMilliseconds} '
+        'ar=${playerRef.controller.value.aspectRatio} '
+        'isPlaying=${playerRef.controller.value.isPlaying} '
+        'err=${playerRef.controller.value.errorDescription}',
       );
-
-      final player = _player;
-      if (player == null) return;
-
-      await player.initialize();
-      player.controller.setLooping(false);
-      player.controller.addListener(_videoListener);
 
       if (mounted) {
         setState(() {
@@ -212,20 +237,53 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
   }
 
   SubtitleModel _getDefaultSubtitle() {
-    // Prioritize Indonesia (ID/IN) first
-    final List<String> idTags = ['in', 'id', 'indonesian', 'bahasa'];
-    return widget.episode.subtitles.firstWhere(
-      (s) => idTags.any((tag) => s.language.toLowerCase().contains(tag)),
-      orElse: () => widget.episode.subtitles.firstWhere(
-        (s) => s.language.toLowerCase().contains('en'),
-        orElse: () => widget.episode.subtitles.first,
-      ),
-    );
+    final subs = widget.episode.subtitles;
+    if (subs.isEmpty) {
+      return const SubtitleModel(url: '', format: '', language: '');
+    }
+    SubtitleModel? byLanguage(bool Function(String lang) test) {
+      for (final s in subs) {
+        if (test(s.language.toLowerCase().trim())) return s;
+      }
+      return null;
+    }
+
+    bool isArabic(String l) =>
+        l == 'ar' || l.startsWith('ar-') || l.contains('arabic');
+    bool isEnglish(String l) =>
+        l == 'en' ||
+        l == 'eng' ||
+        l.startsWith('en-') ||
+        l.contains('english');
+    bool isIndonesian(String l) =>
+        l == 'id' || l == 'in' || l == 'ind' || l.contains('indonesian') ||
+        l.contains('bahasa');
+
+    // Prioritize Arabic, then English, then Indonesian.
+    return byLanguage(isArabic) ??
+        byLanguage(isEnglish) ??
+        byLanguage(isIndonesian) ??
+        subs.first;
+  }
+
+  SubtitleModel? _findEnglishSubtitle() {
+    for (final s in widget.episode.subtitles) {
+      final l = s.language.toLowerCase().trim();
+      if (l == 'en' || l == 'eng' || l.startsWith('en-') || l.contains('english')) {
+        return s;
+      }
+    }
+    return null;
   }
 
   Future<void> _loadSubtitles(String url) async {
     try {
-      final response = await Dio().get(url);
+      String requestUrl = url;
+      if (!requestUrl.startsWith('http')) {
+        requestUrl =
+            'https://narto-drama.com${requestUrl.startsWith('/') ? requestUrl : '/$requestUrl'}';
+      }
+      final response = await Dio().get(requestUrl);
       if (response.data is String) {
         final content = response.data as String;
         // The parser is now robust enough to handle VTT or SRT
@@ -233,7 +291,142 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
       }
     } catch (e) {
       debugPrint("Error loading subtitles: $e");
+      _trySubtitleFallback();
     }
+  }
+
+  /// When the currently selected subtitle fails to load (e.g. an Arabic track
+  /// is missing/broken), fall back to the English track if one exists.
+  void _trySubtitleFallback() {
+    if (!mounted || widget.episode.subtitles.isEmpty) return;
+    final current = _selectedSubtitle;
+    if (current == null || current.url.isEmpty) return;
+    final currentLang = current.language.toLowerCase().trim();
+    if (currentLang == 'en' || currentLang.contains('english')) return;
+    final fallback = _findEnglishSubtitle();
+    if (fallback == null || fallback.url == current.url) return;
+    debugPrint('DIAG falling back subtitles to ${fallback.language}');
+    setState(() => _selectedSubtitle = fallback);
+    _loadSubtitles(fallback.url);
+  }
+
+  void _selectSubtitleByLanguage(String? language) {
+    setState(() {
+      if (language == null) {
+        _subtitlesEnabled = false;
+        _selectedSubtitle = null;
+        _captions = [];
+        _currentCaption = '';
+        return;
+      }
+      _subtitlesEnabled = true;
+      _selectedSubtitle = widget.episode.subtitles.firstWhere(
+        (s) => s.language == language,
+        orElse: () => _getDefaultSubtitle(),
+      );
+      if (_selectedSubtitle!.url.isNotEmpty) {
+        _captions = [];
+        _currentCaption = '';
+        _loadSubtitles(_selectedSubtitle!.url);
+      }
+    });
+  }
+
+  void _showSubtitlePicker() {
+    _startHideTimer();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1C1C20),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Row(
+                  children: [
+                    Text(
+                      AppStrings.subtitles(sheetContext),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ListTile(
+                title: Text(
+                  AppStrings.subtitleOff(sheetContext),
+                  style: const TextStyle(color: Colors.white),
+                ),
+                trailing: _selectedSubtitle == null || !_subtitlesEnabled
+                    ? const Icon(Icons.check, color: Colors.greenAccent)
+                    : null,
+                onTap: () {
+                  _selectSubtitleByLanguage(null);
+                  Navigator.pop(sheetContext);
+                },
+              ),
+              for (final sub in widget.episode.subtitles)
+                ListTile(
+                  title: Text(
+                    _subtitleLabel(sub.language),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  trailing:
+                      _subtitlesEnabled && _selectedSubtitle?.language == sub.language
+                          ? const Icon(Icons.check, color: Colors.greenAccent)
+                          : null,
+                  onTap: () {
+                    _selectSubtitleByLanguage(sub.language);
+                    Navigator.pop(sheetContext);
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _subtitleLabel(String language) {
+    final l = language.toLowerCase().trim();
+    if (l.isEmpty) return 'CC';
+    if (l == 'ar' || l.startsWith('ar-') || l.contains('arabic')) return 'العربية';
+    if (l == 'en' || l == 'eng' || l.startsWith('en-') || l.contains('english')) {
+      return 'English';
+    }
+    if (l == 'id' ||
+        l == 'in' ||
+        l == 'ind' ||
+        l.startsWith('id-') ||
+        l.startsWith('in-') ||
+        l.contains('indonesian') ||
+        l.contains('bahasa')) {
+      return 'Indonesian';
+    }
+    if (l == 'zh' || l == 'cn' || l.startsWith('zh-') || l.contains('chinese')) return '中文';
+    if (l == 'es' || l.startsWith('es-') || l.contains('spanish')) return 'Español';
+    if (l == 'fr' || l.startsWith('fr-') || l.contains('french')) return 'Français';
+    if (l == 'de' || l.startsWith('de-') || l.contains('german')) return 'Deutsch';
+    if (l == 'tr' || l.startsWith('tr-') || l.contains('turkish')) return 'Türkçe';
+    if (l == 'ko' || l.startsWith('ko-') || l.contains('korean')) return '한국어';
+    if (l == 'ja' || l.startsWith('ja-') || l.contains('japanese')) return '日本語';
+    if (l == 'pt' || l.startsWith('pt-') || l.contains('portuguese')) return 'Português';
+    if (l == 'ru' || l.startsWith('ru-') || l.contains('russian')) return 'Русский';
+    if (l == 'it' || l.startsWith('it-') || l.contains('italian')) return 'Italiano';
+    if (l == 'hi' || l.startsWith('hi-') || l.contains('hindi')) return 'हिन्दी';
+    return language;
+  }
+
+  String _languageCode(String language) {
+    final l = language.trim();
+    if (l.isEmpty) return 'CC';
+    return l.length <= 3 ? l.toUpperCase() : l.substring(0, 3).toUpperCase();
   }
 
   void _parseSubtitles(String content) {
@@ -290,6 +483,9 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
         setState(() {
           _captions = captions;
         });
+      }
+      if (captions.isEmpty) {
+        _trySubtitleFallback();
       }
     } catch (e) {
       debugPrint("Error parsing subtitles: $e");
@@ -367,6 +563,15 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
     if (player == null) return;
     final position = player.controller.value.position;
     final duration = player.controller.value.duration;
+
+    if (position.inMilliseconds % 10000 < 200 && position.inMilliseconds > 0) {
+      debugPrint(
+        'DIAG progress: pos=${position.inMilliseconds}ms '
+        'dur=${duration.inMilliseconds}ms '
+        'ar=${player.controller.value.aspectRatio} '
+        'isPlaying=${player.controller.value.isPlaying}',
+      );
+    }
 
     _updateCurrentCaption(position);
 
@@ -610,7 +815,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                               foregroundColor: Colors.white,
                             ),
                             onPressed: _initializeController,
-                            child: const Text('Retry'),
+                            child: Text(AppStrings.retry(context)),
                           ),
                         ],
                       ),
@@ -618,11 +823,13 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                   ),
 
                 // Layer 1: Background Toggle Layer (Handles taps on empty space)
-                Positioned.fill(
-                  child: VideoGestureOverlay(
-                    videoControlCubit: _videoControlCubit,
+                // Hidden while in error state so the Retry button is reachable.
+                if (!_hasError)
+                  Positioned.fill(
+                    child: VideoGestureOverlay(
+                      videoControlCubit: _videoControlCubit,
+                    ),
                   ),
-                ),
 
                 // Visual Feedback for Speed Up
                 if (state.isSpeedUp)
@@ -640,18 +847,18 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                           color: Colors.black54,
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.fast_forward_rounded,
                               color: Colors.amber,
                               size: 20,
                             ),
-                            SizedBox(width: 8),
+                            const SizedBox(width: 8),
                             Text(
-                              '1.5x Speed Playing',
-                              style: TextStyle(
+                              AppStrings.speedPlaying(context),
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
@@ -754,7 +961,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                             ),
                             const SizedBox(width: 16),
                             Text(
-                              'Ep. ${widget.index + 1} / ${widget.episodes.length} Episodes',
+                              '${AppStrings.ep(context)}. ${widget.episodeNumber ?? widget.index + 1} / ${widget.totalEpisodes ?? widget.episodes.length} ${AppStrings.episodes(context)}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 18,
@@ -766,10 +973,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                             if (widget.episode.subtitles.isNotEmpty)
                               GestureDetector(
                                 onTap: () {
-                                  setState(() {
-                                    _subtitlesEnabled = !_subtitlesEnabled;
-                                  });
-                                  _startHideTimer();
+                                  _showSubtitlePicker();
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
@@ -803,9 +1007,14 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                                           size: 18,
                                         ),
                                         const SizedBox(width: 4),
-                                        const Text(
-                                          'CC',
-                                          style: TextStyle(
+                                        Text(
+                                          _subtitlesEnabled &&
+                                                  _selectedSubtitle != null
+                                              ? _languageCode(
+                                                  _selectedSubtitle!.language,
+                                                )
+                                              : 'CC',
+                                          style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 12,
                                             fontWeight: FontWeight.bold,

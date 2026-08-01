@@ -7,6 +7,7 @@ class HistoryModel extends Equatable {
   final int episodeIndex;
   final String episodeName;
   final AppContentProvider provider;
+  final String nartoProviderKey;
   final DateTime watchedAt;
   final int watchedPosition; // in milliseconds
   final int totalDuration; // in milliseconds
@@ -19,6 +20,7 @@ class HistoryModel extends Equatable {
     required this.episodeName,
     required this.provider,
     required this.watchedAt,
+    this.nartoProviderKey = '',
     this.watchedPosition = 0,
     this.totalDuration = 0,
     this.isSubtitlesEnabled = true,
@@ -32,8 +34,9 @@ class HistoryModel extends Equatable {
       episodeName: json['episodeName'] ?? '',
       provider: AppContentProvider.values.firstWhere(
         (e) => e.toString() == json['provider'],
-        orElse: () => AppContentProvider.dramabox,
+        orElse: () => AppContentProvider.narto,
       ),
+      nartoProviderKey: json['nartoProviderKey'] ?? '',
       watchedAt: DateTime.parse(
         json['watchedAt'] ?? DateTime.now().toIso8601String(),
       ),
@@ -50,6 +53,7 @@ class HistoryModel extends Equatable {
       'episodeIndex': episodeIndex,
       'episodeName': episodeName,
       'provider': provider.toString(),
+      'nartoProviderKey': nartoProviderKey,
       'watchedAt': watchedAt.toIso8601String(),
       'watchedPosition': watchedPosition,
       'totalDuration': totalDuration,
@@ -63,6 +67,7 @@ class HistoryModel extends Equatable {
     drama,
     episodeIndex,
     provider,
+    nartoProviderKey,
     watchedAt,
     watchedPosition,
     totalDuration,

@@ -7,16 +7,27 @@ import 'package:dramabox_free/core/di/injection_container.dart' as di;
 import 'package:dramabox_free/presentation/blocs/home_bloc.dart';
 import 'package:dramabox_free/presentation/blocs/player_bloc.dart';
 import 'package:dramabox_free/presentation/blocs/history_bloc.dart';
+import 'package:dramabox_free/presentation/blocs/favorites_bloc.dart';
+import 'package:dramabox_free/presentation/blocs/downloads_bloc.dart';
+import 'package:dramabox_free/presentation/blocs/search_bloc.dart';
 import 'package:dramabox_free/presentation/cubits/navigation_cubit.dart';
+import 'package:dramabox_free/presentation/cubits/app_language_cubit.dart';
+import 'package:dramabox_free/presentation/cubits/provider_visibility_cubit.dart';
 import 'package:dramabox_free/core/services/shorebird_service.dart';
 import 'package:dramabox_free/core/services/video_proxy_service.dart';
+import 'package:dramabox_free/core/theme/app_theme.dart';
+import 'package:dramabox_free/presentation/cubits/app_theme_cubit.dart';
+import 'package:dramabox_free/presentation/cubits/adult_lock_cubit.dart';
+import 'package:dramabox_free/presentation/cubits/similar_section_cubit.dart';
 import 'package:dramabox_free/presentation/pages/home_page.dart';
+import 'package:dramabox_free/l10n/generated/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = MyHttpOverrides();
 
   await Hive.initFlutter();
+  await Hive.openBox('settings');
   await di.init();
   await di.sl<ShorebirdService>().init();
   await di.sl<VideoProxyService>().init();
@@ -38,19 +49,52 @@ class MyApp extends StatelessWidget {
         BlocProvider<HistoryBloc>(
           create: (context) => di.sl<HistoryBloc>()..add(LoadHistoryEvent()),
         ),
+        BlocProvider<FavoritesBloc>(
+          create: (context) => di.sl<FavoritesBloc>()..add(LoadFavoritesEvent()),
+        ),
+        BlocProvider<DownloadsBloc>(
+          create: (context) => di.sl<DownloadsBloc>()..add(LoadDownloadsEvent()),
+        ),
+        BlocProvider<SearchBloc>(
+          create: (context) => di.sl<SearchBloc>(),
+        ),
         BlocProvider<NavigationCubit>(
           create: (context) => di.sl<NavigationCubit>(),
         ),
-      ],
-      child: MaterialApp(
-        title: 'DramaBox',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          brightness: Brightness.dark,
-          primarySwatch: Colors.blue,
-          scaffoldBackgroundColor: Colors.black,
+        BlocProvider<AppLanguageCubit>(
+          create: (context) => di.sl<AppLanguageCubit>(),
         ),
-        home: const HomePage(),
+        BlocProvider<ProviderVisibilityCubit>(
+          create: (context) => ProviderVisibilityCubit(),
+        ),
+        BlocProvider<AppThemeCubit>(
+          create: (context) => di.sl<AppThemeCubit>(),
+        ),
+        BlocProvider<AdultLockCubit>(
+          create: (context) => di.sl<AdultLockCubit>(),
+        ),
+        BlocProvider<SimilarSectionCubit>(
+          create: (context) => di.sl<SimilarSectionCubit>(),
+        ),
+      ],
+      child: BlocBuilder<AppLanguageCubit, Locale>(
+        builder: (context, locale) {
+          return BlocBuilder<AppThemeCubit, ThemeMode>(
+            builder: (context, themeMode) {
+              return MaterialApp(
+                title: 'QuickPlay',
+                debugShowCheckedModeBanner: false,
+                theme: AppTheme.light,
+                darkTheme: AppTheme.dark,
+                themeMode: themeMode,
+                locale: locale,
+                supportedLocales: AppLocalizations.supportedLocales,
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                home: const HomePage(),
+              );
+            },
+          );
+        },
       ),
     );
   }

@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'package:dramabox_free/core/constants/app_enums.dart';
+import 'package:dramabox_free/core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dramabox_free/data/models/drama_model.dart';
+import 'package:dramabox_free/data/models/episode_model.dart';
 import 'package:dramabox_free/presentation/blocs/player_bloc.dart';
 import 'package:dramabox_free/presentation/widgets/video_player_item.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -11,10 +14,26 @@ class PlayerPage extends StatefulWidget {
   final DramaModel drama;
   final AppContentProvider provider;
 
+  /// The narto platform key (bibishort, dramabox, ...) this drama belongs to.
+  final String nartoProviderKey;
+  final int? startIndex;
+
+  /// Optional local episode list (e.g. downloaded subset) to play instead of
+  /// fetching from the network.
+  final List<EpisodeModel>? episodesOverride;
+
+  /// Parallel to [episodesOverride]: true 1-based episode numbers, so the
+  /// player can show the correct "EP n" label when playing a subset.
+  final List<int>? episodeNumbers;
+
   const PlayerPage({
     super.key,
     required this.drama,
-    this.provider = AppContentProvider.dramabox,
+    this.provider = AppContentProvider.narto,
+    this.nartoProviderKey = '',
+    this.startIndex,
+    this.episodesOverride,
+    this.episodeNumbers,
   });
 
   @override
@@ -24,14 +43,25 @@ class PlayerPage extends StatefulWidget {
 class _PlayerPageState extends State<PlayerPage> {
   int _currentIndex = 0;
   ScrollController? _pageController;
+  List<int>? _episodeNumbers;
 
   @override
   void initState() {
     super.initState();
+    _episodeNumbers = widget.episodeNumbers;
     // Start loading data immediately
-    context.read<PlayerBloc>().add(
-      LoadEpisodesEvent(widget.drama.bookId, provider: widget.provider),
-    );
+    if (widget.episodesOverride != null && widget.episodesOverride!.isNotEmpty) {
+      context.read<PlayerBloc>().add(
+        LoadLocalEpisodesEvent(
+          widget.episodesOverride!,
+          widget.startIndex ?? 0,
+        ),
+      );
+    } else {
+      context.read<PlayerBloc>().add(
+        LoadEpisodesEvent(widget.drama.bookId, provider: widget.provider),
+      );
+    }
     WakelockPlus.enable();
   }
 
@@ -51,9 +81,8 @@ class _PlayerPageState extends State<PlayerPage> {
         if (state is PlayerLoaded) {
           // Initialize or reset the controller with the saved index
           if (_pageController == null) {
-            final initialIndex = state.initialIndex == -1
-                ? 0
-                : state.initialIndex;
+            final initialIndex = widget.startIndex ??
+                (state.initialIndex == -1 ? 0 : state.initialIndex);
             _currentIndex = initialIndex;
             final screenHeight = MediaQuery.of(context).size.height;
             _pageController = ScrollController(
@@ -101,7 +130,7 @@ class _PlayerPageState extends State<PlayerPage> {
           physics: const PageScrollPhysics(),
           scrollDirection: Axis.vertical,
           // Preload next 3 episodes
-          cacheExtent: MediaQuery.of(context).size.height * 3,
+          scrollCacheExtent: ScrollCacheExtent.viewport(3),
           slivers: [
             SliverFillViewport(
               delegate: SliverChildBuilderDelegate((context, index) {
@@ -115,6 +144,13 @@ class _PlayerPageState extends State<PlayerPage> {
                   dramaTitle: widget.drama.bookName,
                   drama: widget.drama,
                   episodes: state.episodes,
+                  episodeNumber: _episodeNumbers != null &&
+                          index < _episodeNumbers!.length
+                      ? _episodeNumbers![index]
+                      : null,
+                  totalEpisodes: widget.drama.chapterCount > 0
+                      ? widget.drama.chapterCount
+                      : null,
                   onEpisodeSelected: (newIndex) {
                     if (newIndex >= 0 && newIndex < state.episodes.length) {
                       _pageController?.jumpTo(
@@ -145,6 +181,7 @@ class _PlayerPageState extends State<PlayerPage> {
                         index,
                         episodeName: state.episodes[index].chapterName,
                         provider: widget.provider,
+                        nartoProviderKey: widget.nartoProviderKey,
                         isHistoryUpdate: true,
                         // We don't have immediate access to current subtitle state here
                         // but it will be picked up by the next periodic progress update
@@ -170,6 +207,7 @@ class _PlayerPageState extends State<PlayerPage> {
                             index,
                             episodeName: state.episodes[index].chapterName,
                             provider: widget.provider,
+                            nartoProviderKey: widget.nartoProviderKey,
                             position: position,
                             duration: duration,
                             isHistoryUpdate: isHistoryUpdate,
@@ -218,7 +256,7 @@ class _PlayerPageState extends State<PlayerPage> {
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Back'),
+              child: Text(AppStrings.back(context)),
             ),
           ],
         ),
@@ -359,13 +397,12 @@ class _PlayerLoadingViewState extends State<_PlayerLoadingView>
               ),
               const SizedBox(height: 24),
 
-              // Text
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 40),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
                 child: Text(
-                  'Fetching episodes... please wait.',
+                  AppStrings.fetchingEpisodes(context),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.grey,
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -374,9 +411,9 @@ class _PlayerLoadingViewState extends State<_PlayerLoadingView>
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'This may take a moment depending on your connection.',
-                style: TextStyle(
+              Text(
+                AppStrings.thisMayTake(context),
+                style: const TextStyle(
                   color: Colors.grey,
                   fontSize: 13,
                   fontWeight: FontWeight.w300,

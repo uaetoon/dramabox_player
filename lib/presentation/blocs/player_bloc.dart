@@ -17,10 +17,19 @@ abstract class PlayerEvent extends Equatable {
 class LoadEpisodesEvent extends PlayerEvent {
   final String bookId;
   final AppContentProvider provider;
-  LoadEpisodesEvent(this.bookId, {this.provider = AppContentProvider.dramabox});
+  LoadEpisodesEvent(this.bookId, {this.provider = AppContentProvider.narto});
 
   @override
   List<Object?> get props => [bookId, provider];
+}
+
+class LoadLocalEpisodesEvent extends PlayerEvent {
+  final List<EpisodeModel> episodes;
+  final int initialIndex;
+  LoadLocalEpisodesEvent(this.episodes, this.initialIndex);
+
+  @override
+  List<Object?> get props => [episodes, initialIndex];
 }
 
 class SaveProgressEvent extends PlayerEvent {
@@ -28,6 +37,7 @@ class SaveProgressEvent extends PlayerEvent {
   final int index;
   final String episodeName;
   final AppContentProvider provider;
+  final String nartoProviderKey;
   final int position; // in ms
   final int duration; // in ms
   final bool isHistoryUpdate;
@@ -38,7 +48,8 @@ class SaveProgressEvent extends PlayerEvent {
     this.drama,
     this.index, {
     this.episodeName = '',
-    this.provider = AppContentProvider.dramabox,
+    this.provider = AppContentProvider.narto,
+    this.nartoProviderKey = '',
     this.position = 0,
     this.duration = 0,
     this.isHistoryUpdate = false,
@@ -52,6 +63,7 @@ class SaveProgressEvent extends PlayerEvent {
     index,
     episodeName,
     provider,
+    nartoProviderKey,
     position,
     duration,
     isHistoryUpdate,
@@ -108,6 +120,16 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
   final DramaRepository repository;
 
   PlayerBloc({required this.repository}) : super(PlayerInitial()) {
+    on<LoadLocalEpisodesEvent>((event, emit) {
+      emit(
+        PlayerLoaded(
+          event.episodes,
+          event.initialIndex,
+          initialIsSubtitlesEnabled: true,
+        ),
+      );
+    });
+
     on<LoadEpisodesEvent>((event, emit) async {
       emit(PlayerLoading());
       try {
@@ -138,7 +160,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
           final history = await repository.getHistory();
           final dramaHistory = history.firstWhere(
             (h) =>
-                h.drama.bookId == event.bookId && h.provider == event.provider,
+                h.drama.bookId == event.bookId &&
+                h.provider == event.provider,
             orElse: () => history.firstWhere(
               (h) => h.drama.bookId == event.bookId,
               orElse: () => HistoryModel(
@@ -197,6 +220,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
               episodeIndex: event.index,
               episodeName: event.episodeName,
               provider: event.provider,
+              nartoProviderKey: event.nartoProviderKey,
               watchedAt: DateTime.now(),
               watchedPosition: event.position,
               totalDuration: event.duration,

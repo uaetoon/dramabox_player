@@ -36,6 +36,7 @@ class EpisodeModel extends Equatable {
   final String videoUrl;
   final String chapterImg;
   final List<SubtitleModel> subtitles;
+  final bool isPlayable;
 
   const EpisodeModel({
     required this.chapterId,
@@ -43,51 +44,88 @@ class EpisodeModel extends Equatable {
     required this.videoUrl,
     required this.chapterImg,
     this.subtitles = const [],
+    this.isPlayable = true,
   });
 
   factory EpisodeModel.fromJson(Map<String, dynamic> json) {
     final List<SubtitleModel> subtitles = [];
-    if (json['subtitles'] != null) {
-      final list = json['subtitles'] as List;
-      subtitles.addAll(list.map((e) => SubtitleModel.fromJson(e)));
-    }
 
-    // Support Dramabox-specific structure: subLanguageVoList
-    if (json['subLanguageVoList'] != null) {
-      final list = json['subLanguageVoList'] as List;
-      for (var e in list) {
-        if (e is Map<String, dynamic> &&
-            e['url'] != null &&
-            e['url'].toString().isNotEmpty &&
-            e['captionLanguage'] != 'none') {
-          subtitles.add(SubtitleModel.fromJson(e));
+    void extractSubtitles(String? key) {
+      if (json[key] != null) {
+        final list = json[key] as List;
+        for (var e in list) {
+          if (e is Map<String, dynamic>) {
+            final url = e['url']?.toString() ?? e['subtitleUrl']?.toString() ?? '';
+            if (url.isNotEmpty && e['captionLanguage'] != 'none') {
+              subtitles.add(SubtitleModel.fromJson(e));
+            }
+          }
         }
       }
     }
 
-    // Check if it's already a parsed model from cache
-    if (json.containsKey('videoUrl') &&
-        (json['videoUrl'] as String).isNotEmpty) {
+    extractSubtitles('subtitles');
+    extractSubtitles('subtitleList');
+    extractSubtitles('subLanguageVoList');
+    extractSubtitles('captionList');
+
+    // Direct videoUrl (already parsed)
+    final directUrl = json['videoUrl']?.toString() ?? '';
+    if (directUrl.isNotEmpty) {
       return EpisodeModel(
-        chapterId: json['chapterId']?.toString() ?? '',
-        chapterName: json['chapterName'] ?? '',
-        videoUrl: json['videoUrl'] ?? '',
-        chapterImg: json['chapterImg'] ?? '',
+        chapterId: json['chapterId']?.toString() ??
+            json['id']?.toString() ??
+            json['episodeId']?.toString() ??
+            '',
+        chapterName: json['chapterName'] ??
+            json['name'] ??
+            json['episodeName'] ??
+            'Episode ${json['episodeNo'] ?? json['sort'] ?? ''}',
+        videoUrl: directUrl,
+        chapterImg: json['chapterImg'] ??
+            json['cover'] ??
+            json['episodeCover'] ??
+            json['thumbnail'] ??
+            '',
         subtitles: subtitles,
+        isPlayable: (json['isPlayable'] as bool?) ?? true,
       );
     }
 
     String foundUrl = '';
+
+    // Check playVoucher (Netshort pattern)
+    if ((json['playVoucher']?.toString() ?? '').isNotEmpty) {
+      foundUrl = json['playVoucher'].toString();
+      return EpisodeModel(
+        chapterId: json['episodeId']?.toString() ??
+            json['chapterId']?.toString() ??
+            json['id']?.toString() ??
+            '',
+        chapterName: json['episodeName'] ??
+            json['chapterName'] ??
+            json['name'] ??
+            'Episode ${json['episodeNo'] ?? ''}',
+        videoUrl: foundUrl,
+        chapterImg: json['episodeCover'] ??
+            json['chapterImg'] ??
+            json['cover'] ??
+            json['thumbnail'] ??
+            '',
+        subtitles: subtitles,
+        isPlayable: (json['isPlayable'] as bool?) ?? true,
+      );
+    }
+
+    // cdnList pattern (Dramabox)
     final cdnList = json['cdnList'] as List?;
     if (cdnList != null && cdnList.isNotEmpty) {
-      // Prefer cdnDomain with "akavideo" or the first one
       final cdn = cdnList.firstWhere(
-        (e) => (e['cdnDomain'] as String).contains('akavideo'),
+        (e) => (e['cdnDomain'] as String?)?.contains('akavideo') ?? false,
         orElse: () => cdnList.first,
       );
       final videoPaths = cdn['videoPathList'] as List?;
       if (videoPaths != null && videoPaths.isNotEmpty) {
-        // Find best quality or 720p if available
         final path = videoPaths.firstWhere(
           (v) => v['quality'] == 720,
           orElse: () => videoPaths.first,
@@ -96,12 +134,31 @@ class EpisodeModel extends Equatable {
       }
     }
 
+    // Try direct videoUrl field
+    if (foundUrl.isEmpty) {
+      foundUrl = json['videoUrl']?.toString() ??
+          json['url']?.toString() ??
+          json['playUrl']?.toString() ??
+          '';
+    }
+
     return EpisodeModel(
-      chapterId: json['chapterId']?.toString() ?? '',
-      chapterName: json['chapterName'] ?? '',
+      chapterId: json['chapterId']?.toString() ??
+          json['id']?.toString() ??
+          json['episodeId']?.toString() ??
+          '',
+      chapterName: json['chapterName'] ??
+          json['name'] ??
+          json['episodeName'] ??
+          'Episode ${json['episodeNo'] ?? json['sort'] ?? ''}',
       videoUrl: foundUrl,
-      chapterImg: json['chapterImg'] ?? '',
+      chapterImg: json['chapterImg'] ??
+          json['cover'] ??
+          json['episodeCover'] ??
+          json['thumbnail'] ??
+          '',
       subtitles: subtitles,
+      isPlayable: foundUrl.isNotEmpty && ((json['isPlayable'] as bool?) ?? true),
     );
   }
 
@@ -112,6 +169,7 @@ class EpisodeModel extends Equatable {
       'videoUrl': videoUrl,
       'chapterImg': chapterImg,
       'subtitles': subtitles.map((e) => e.toJson()).toList(),
+      'isPlayable': isPlayable,
     };
   }
 
@@ -122,5 +180,6 @@ class EpisodeModel extends Equatable {
     videoUrl,
     chapterImg,
     subtitles,
+    isPlayable,
   ];
 }

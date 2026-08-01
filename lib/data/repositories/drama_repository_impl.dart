@@ -1,80 +1,104 @@
 import 'package:dramabox_free/core/constants/app_enums.dart';
-import 'package:dramabox_free/data/datasources/netshort_remote_data_source.dart';
 import 'package:dramabox_free/domain/repositories/drama_repository.dart';
 import 'package:dramabox_free/data/datasources/drama_local_data_source.dart';
-import 'package:dramabox_free/data/datasources/drama_remote_data_source.dart';
+import 'package:dramabox_free/data/datasources/narto_remote_data_source.dart';
 import 'package:dramabox_free/data/models/drama_model.dart';
 import 'package:dramabox_free/data/models/drama_section_model.dart';
 import 'package:dramabox_free/data/models/episode_model.dart';
+import 'package:dramabox_free/data/models/favorite_model.dart';
 import 'package:dramabox_free/data/models/history_model.dart';
+import 'package:dramabox_free/data/models/narto_provider.dart';
 
 class DramaRepositoryImpl implements DramaRepository {
-  final DramaRemoteDataSource dramaboxRemoteDataSource;
-  final NetshortRemoteDataSource netshortRemoteDataSource;
+  final NartoRemoteDataSource nartoDataSource;
   final DramaLocalDataSource localDataSource;
 
   DramaRepositoryImpl({
-    required this.dramaboxRemoteDataSource,
-    required this.netshortRemoteDataSource,
+    required this.nartoDataSource,
     required this.localDataSource,
   });
 
-  String _getCacheKey(String baseKey, AppContentProvider provider) {
-    return '${provider.name}_$baseKey';
+  String _getCacheKey(
+    String baseKey,
+    AppContentProvider provider, {
+    String? nartoProviderKey,
+  }) {
+    final subKey = (nartoProviderKey != null && nartoProviderKey.isNotEmpty)
+        ? '${nartoProviderKey}_'
+        : '';
+    return '$subKey${provider.name}_$baseKey';
+  }
+
+  Future<List<DramaSectionModel>> _fetchSections(
+    AppContentProvider provider, {
+    String? nartoProviderKey,
+  }) {
+    return nartoDataSource.getHomeSections(providerKey: nartoProviderKey);
+  }
+
+  @override
+  Future<NartoHomeData> getNartoHomeData({String? nartoProviderKey}) async {
+    final data = await nartoDataSource.getHomeData(providerKey: nartoProviderKey);
+    final key = data.activeProvider;
+    if (key.isNotEmpty) {
+      final cacheKey = _getCacheKey(
+        'home_sections',
+        AppContentProvider.narto,
+        nartoProviderKey: key,
+      );
+      await localDataSource.cacheSections(cacheKey, data.sections);
+    }
+    return data;
+  }
+
+  @override
+  Future<NartoProviderCatalog> getNartoProviders() async {
+    return nartoDataSource.getProviderCatalog();
   }
 
   @override
   Future<List<DramaSectionModel>> getHomeSections({
-    AppContentProvider provider = AppContentProvider.dramabox,
+    AppContentProvider provider = AppContentProvider.narto,
+    String? nartoProviderKey,
   }) async {
-    final cacheKey = _getCacheKey('home_sections', provider);
-    if (provider == AppContentProvider.netshort) {
-      final sections = await netshortRemoteDataSource.getTheaterDramas();
-      await localDataSource.cacheSections(cacheKey, sections);
-      return sections;
-    } else {
-      // Dramabox fixed sections
-      final results = await Future.wait([
-        dramaboxRemoteDataSource.getForYouDramas(page: 1),
-        dramaboxRemoteDataSource.getLatestDramas(),
-        dramaboxRemoteDataSource.getTrendingDramas(),
-        dramaboxRemoteDataSource.getVipDramas(),
-      ]);
-
-      final sections = [
-        DramaSectionModel(name: 'For You', dramas: results[0], currentPage: 1),
-        DramaSectionModel(name: 'Latest', dramas: results[1], hasMore: false),
-        DramaSectionModel(name: 'Trending', dramas: results[2], hasMore: false),
-        DramaSectionModel(name: 'VIP', dramas: results[3], hasMore: false),
-      ];
-      await localDataSource.cacheSections(cacheKey, sections);
-      return sections;
-    }
+    final cacheKey = _getCacheKey(
+      'home_sections',
+      provider,
+      nartoProviderKey: nartoProviderKey,
+    );
+    final sections = await _fetchSections(
+      provider,
+      nartoProviderKey: nartoProviderKey,
+    );
+    await localDataSource.cacheSections(cacheKey, sections);
+    return sections;
   }
 
   @override
   Future<List<DramaSectionModel>?> getCachedHomeSections({
-    AppContentProvider provider = AppContentProvider.dramabox,
+    AppContentProvider provider = AppContentProvider.narto,
+    String? nartoProviderKey,
   }) async {
-    final cacheKey = _getCacheKey('home_sections', provider);
+    final cacheKey = _getCacheKey(
+      'home_sections',
+      provider,
+      nartoProviderKey: nartoProviderKey,
+    );
     return await localDataSource.getCachedSections(cacheKey);
   }
 
   @override
   Future<List<DramaModel>> getTrendingDramas({
-    AppContentProvider provider = AppContentProvider.dramabox,
+    AppContentProvider provider = AppContentProvider.narto,
     int page = 1,
   }) async {
     try {
-      if (provider == AppContentProvider.dramabox) {
-        final remoteDramas = await dramaboxRemoteDataSource.getTrendingDramas();
-        if (page == 1) {
-          await localDataSource.cacheTrendingDramas(remoteDramas);
-        }
-        return remoteDramas;
-      } else {
-        return await netshortRemoteDataSource.getForYouDramas(page: page);
+      final remoteDramas = await _fetchSections(provider);
+      final trending = remoteDramas.length > 2 ? remoteDramas[2].dramas : <DramaModel>[];
+      if (page == 1) {
+        await localDataSource.cacheTrendingDramas(trending);
       }
+      return trending;
     } catch (e) {
       if (page == 1) {
         final cached = await localDataSource.getTrendingDramas();
@@ -86,18 +110,15 @@ class DramaRepositoryImpl implements DramaRepository {
 
   @override
   Future<List<DramaModel>> getForYouDramas({
-    AppContentProvider provider = AppContentProvider.dramabox,
+    AppContentProvider provider = AppContentProvider.narto,
     int page = 1,
   }) async {
     try {
-      if (provider == AppContentProvider.dramabox) {
-        final remoteDramas = await dramaboxRemoteDataSource.getForYouDramas(
-          page: page,
-        );
-        return remoteDramas;
-      } else {
-        return await netshortRemoteDataSource.getForYouDramas(page: page);
+      final sections = await _fetchSections(provider);
+      if (sections.isNotEmpty) {
+        return sections[0].dramas;
       }
+      return [];
     } catch (e) {
       rethrow;
     }
@@ -105,19 +126,16 @@ class DramaRepositoryImpl implements DramaRepository {
 
   @override
   Future<List<DramaModel>> getLatestDramas({
-    AppContentProvider provider = AppContentProvider.dramabox,
+    AppContentProvider provider = AppContentProvider.narto,
     int page = 1,
   }) async {
     try {
-      if (provider == AppContentProvider.dramabox) {
-        final remoteDramas = await dramaboxRemoteDataSource.getLatestDramas();
-        if (page == 1) {
-          await localDataSource.cacheLatestDramas(remoteDramas);
-        }
-        return remoteDramas;
-      } else {
-        return await netshortRemoteDataSource.getForYouDramas(page: page);
+      final remoteDramas = await _fetchSections(provider);
+      final latest = remoteDramas.length > 1 ? remoteDramas[1].dramas : <DramaModel>[];
+      if (page == 1) {
+        await localDataSource.cacheLatestDramas(latest);
       }
+      return latest;
     } catch (e) {
       if (page == 1) {
         final cached = await localDataSource.getLatestDramas();
@@ -129,19 +147,16 @@ class DramaRepositoryImpl implements DramaRepository {
 
   @override
   Future<List<DramaModel>> getVipDramas({
-    AppContentProvider provider = AppContentProvider.dramabox,
+    AppContentProvider provider = AppContentProvider.narto,
     int page = 1,
   }) async {
     try {
-      if (provider == AppContentProvider.dramabox) {
-        final remoteDramas = await dramaboxRemoteDataSource.getVipDramas();
-        if (page == 1) {
-          await localDataSource.cacheVipDramas(remoteDramas);
-        }
-        return remoteDramas;
-      } else {
-        return await netshortRemoteDataSource.getForYouDramas(page: page);
+      final remoteDramas = await _fetchSections(provider);
+      final vip = remoteDramas.length > 3 ? remoteDramas[3].dramas : <DramaModel>[];
+      if (page == 1) {
+        await localDataSource.cacheVipDramas(vip);
       }
+      return vip;
     } catch (e) {
       if (page == 1) {
         final cached = await localDataSource.getVipDramas();
@@ -153,21 +168,21 @@ class DramaRepositoryImpl implements DramaRepository {
 
   @override
   Future<List<DramaModel>?> getCachedTrendingDramas({
-    AppContentProvider provider = AppContentProvider.dramabox,
+    AppContentProvider provider = AppContentProvider.narto,
   }) async {
     return await localDataSource.getTrendingDramas();
   }
 
   @override
   Future<List<DramaModel>?> getCachedLatestDramas({
-    AppContentProvider provider = AppContentProvider.dramabox,
+    AppContentProvider provider = AppContentProvider.narto,
   }) async {
     return await localDataSource.getLatestDramas();
   }
 
   @override
   Future<List<DramaModel>?> getCachedVipDramas({
-    AppContentProvider provider = AppContentProvider.dramabox,
+    AppContentProvider provider = AppContentProvider.narto,
   }) async {
     return await localDataSource.getVipDramas();
   }
@@ -175,38 +190,27 @@ class DramaRepositoryImpl implements DramaRepository {
   @override
   Future<List<DramaModel>> searchDramas(
     String query, {
-    AppContentProvider provider = AppContentProvider.dramabox,
+    AppContentProvider provider = AppContentProvider.narto,
+    String? nartoProviderKey,
   }) async {
-    if (provider == AppContentProvider.dramabox) {
-      return await dramaboxRemoteDataSource.searchDramas(query);
-    } else {
-      return await netshortRemoteDataSource.searchDramas(query);
-    }
+    return nartoDataSource.searchDramas(
+      query,
+      providerKey: nartoProviderKey,
+    );
   }
 
   @override
   Future<List<EpisodeModel>> getDramaEpisodes(
     String bookId, {
-    AppContentProvider provider = AppContentProvider.dramabox,
+    AppContentProvider provider = AppContentProvider.narto,
   }) async {
     final cacheKey = _getCacheKey(bookId, provider);
     final cached = await localDataSource.getEpisodes(cacheKey);
     if (cached != null && cached.isNotEmpty) {
-      // If none of the episodes have subtitles, and it's Netshort, it might be stale cache
-      // from before the subtitle update. Refresh in this case.
-      bool hasAnySubtitle = cached.any((e) => e.subtitles.isNotEmpty);
-      if (provider != AppContentProvider.netshort || hasAnySubtitle) {
-        return cached;
-      }
+      return cached;
     }
 
-    final List<EpisodeModel> remoteEpisodes;
-    if (provider == AppContentProvider.dramabox) {
-      remoteEpisodes = await dramaboxRemoteDataSource.getDramaEpisodes(bookId);
-    } else {
-      remoteEpisodes = await netshortRemoteDataSource.getDramaEpisodes(bookId);
-    }
-
+    final remoteEpisodes = await nartoDataSource.getDramaEpisodes(bookId);
     await localDataSource.cacheEpisodes(cacheKey, remoteEpisodes);
     return remoteEpisodes;
   }
@@ -217,7 +221,7 @@ class DramaRepositoryImpl implements DramaRepository {
     int index, {
     int position = 0,
     int duration = 0,
-    AppContentProvider provider = AppContentProvider.dramabox,
+    AppContentProvider provider = AppContentProvider.narto,
   }) async {
     final cacheKey = _getCacheKey(bookId, provider);
     await localDataSource.saveLastWatchedIndex(
@@ -231,7 +235,7 @@ class DramaRepositoryImpl implements DramaRepository {
   @override
   Future<int> getLastWatchedIndex(
     String bookId, {
-    AppContentProvider provider = AppContentProvider.dramabox,
+    AppContentProvider provider = AppContentProvider.narto,
   }) async {
     final cacheKey = _getCacheKey(bookId, provider);
     return localDataSource.getLastWatchedIndex(cacheKey);
@@ -241,7 +245,7 @@ class DramaRepositoryImpl implements DramaRepository {
   Future<Map<String, dynamic>?> getEpisodeProgress(
     String bookId,
     int episodeIndex, {
-    AppContentProvider provider = AppContentProvider.dramabox,
+    AppContentProvider provider = AppContentProvider.narto,
   }) async {
     final cacheKey = _getCacheKey(bookId, provider);
     return await localDataSource.getEpisodeProgress(cacheKey, episodeIndex);
@@ -249,20 +253,11 @@ class DramaRepositoryImpl implements DramaRepository {
 
   @override
   Future<int> getLocalLastWatchedIndex(String bookId) async {
-    // Try both providers if no specific provider is given
-    final dramaboxKey = _getCacheKey(bookId, AppContentProvider.dramabox);
-    final dramaboxIndex = await localDataSource.getLastWatchedIndex(
-      dramaboxKey,
-    );
-    if (dramaboxIndex >= 0) return dramaboxIndex;
-
-    final netshortKey = _getCacheKey(bookId, AppContentProvider.netshort);
-    final netshortIndex = await localDataSource.getLastWatchedIndex(
-      netshortKey,
-    );
-    if (netshortIndex >= 0) return netshortIndex;
-
-    // Last fallback: try the raw bookId (backward compatibility)
+    for (final provider in AppContentProvider.values) {
+      final key = _getCacheKey(bookId, provider);
+      final index = await localDataSource.getLastWatchedIndex(key);
+      if (index >= 0) return index;
+    }
     return await localDataSource.getLastWatchedIndex(bookId);
   }
 
@@ -277,7 +272,25 @@ class DramaRepositoryImpl implements DramaRepository {
   }
 
   @override
-  Future<String> decryptVideoUrl(String url) async {
-    return await dramaboxRemoteDataSource.decryptVideoUrl(url);
+  Future<List<FavoriteModel>> getFavorites() async {
+    return localDataSource.getFavorites();
+  }
+
+  @override
+  Future<void> saveFavorite(FavoriteModel favorite) async {
+    return localDataSource.saveFavorite(favorite);
+  }
+
+  @override
+  Future<void> removeFavorite(
+    String bookId,
+    AppContentProvider provider,
+  ) async {
+    return localDataSource.removeFavorite(bookId, provider);
+  }
+
+  @override
+  Future<bool> isFavorite(String bookId, AppContentProvider provider) async {
+    return localDataSource.isFavorite(bookId, provider);
   }
 }

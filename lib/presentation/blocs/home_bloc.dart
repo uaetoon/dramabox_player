@@ -1,12 +1,12 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:dramabox_free/core/constants/app_enums.dart';
-import 'package:dramabox_free/data/models/drama_model.dart';
+import 'package:dramabox_free/core/services/cross_provider_service.dart';
 import 'package:dramabox_free/data/models/drama_section_model.dart';
+import 'package:dramabox_free/data/models/narto_provider.dart';
 import 'package:dramabox_free/domain/repositories/drama_repository.dart';
-import 'package:dramabox_free/core/network/rate_limit_exception.dart';
+import 'package:dramabox_free/presentation/cubits/adult_lock_cubit.dart';
 
 // Events
 abstract class HomeEvent extends Equatable {
@@ -16,35 +16,33 @@ abstract class HomeEvent extends Equatable {
 
 class FetchHomeDataEvent extends HomeEvent {
   final AppContentProvider provider;
+  final String? nartoProviderKey;
   final bool forceRefresh;
   FetchHomeDataEvent({
-    this.provider = AppContentProvider.dramabox,
+    this.provider = AppContentProvider.narto,
+    this.nartoProviderKey,
     this.forceRefresh = false,
   });
 
   @override
-  List<Object?> get props => [provider, forceRefresh];
+  List<Object?> get props => [provider, nartoProviderKey, forceRefresh];
 }
 
 class PreloadAllEvent extends HomeEvent {}
 
 class LoadMoreHomeDataEvent extends HomeEvent {
   final AppContentProvider provider;
+  final String? nartoProviderKey;
   final int sectionIndex;
 
-  LoadMoreHomeDataEvent({required this.provider, required this.sectionIndex});
+  LoadMoreHomeDataEvent({
+    required this.provider,
+    this.nartoProviderKey,
+    required this.sectionIndex,
+  });
 
   @override
-  List<Object?> get props => [provider, sectionIndex];
-}
-
-class SearchDramasEvent extends HomeEvent {
-  final String query;
-  final AppContentProvider provider;
-  SearchDramasEvent(this.query, {this.provider = AppContentProvider.dramabox});
-
-  @override
-  List<Object?> get props => [query, provider];
+  List<Object?> get props => [provider, nartoProviderKey, sectionIndex];
 }
 
 // States
@@ -58,116 +56,180 @@ class HomeInitial extends HomeState {}
 class HomeLoading extends HomeState {}
 
 class HomeLoaded extends HomeState {
-  final Map<AppContentProvider, List<DramaSectionModel>> providerSections;
-  final List<DramaModel>? searchResults;
+  final Map<String, List<DramaSectionModel>> providerSections;
+  final List<NartoProvider> nartoProviders;
+  final String activeNartoProvider;
 
-  HomeLoaded({required this.providerSections, this.searchResults});
+  HomeLoaded({
+    required this.providerSections,
+    this.nartoProviders = const [],
+    this.activeNartoProvider = '',
+  });
 
-  List<DramaSectionModel> get sectionsForDramabox =>
-      providerSections[AppContentProvider.dramabox] ?? [];
-  List<DramaSectionModel> get sectionsForNetshort =>
-      providerSections[AppContentProvider.netshort] ?? [];
+  List<DramaSectionModel> sectionsFor(String nartoProviderKey) =>
+      providerSections[nartoProviderKey] ?? [];
 
   HomeLoaded copyWith({
-    Map<AppContentProvider, List<DramaSectionModel>>? providerSections,
-    List<DramaModel>? searchResults,
+    Map<String, List<DramaSectionModel>>? providerSections,
+    List<NartoProvider>? nartoProviders,
+    String? activeNartoProvider,
   }) {
     return HomeLoaded(
       providerSections: providerSections ?? this.providerSections,
-      searchResults: searchResults ?? this.searchResults,
+      nartoProviders: nartoProviders ?? this.nartoProviders,
+      activeNartoProvider: activeNartoProvider ?? this.activeNartoProvider,
     );
   }
 
   @override
-  List<Object?> get props => [providerSections, searchResults];
+  List<Object?> get props =>
+      [providerSections, nartoProviders, activeNartoProvider];
 }
 
 class HomeError extends HomeState {
   final String message;
-  final bool isApiBlocked;
-  HomeError(this.message, {this.isApiBlocked = false});
+  HomeError(this.message);
 
   @override
-  List<Object?> get props => [message, isApiBlocked];
+  List<Object?> get props => [message];
 }
 
 // Bloc
 class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final DramaRepository repository;
+  final CrossProviderService crossProviderService;
+  final AdultLockCubit adultLockCubit;
 
-  HomeBloc({required this.repository}) : super(HomeInitial()) {
-    on<PreloadAllEvent>((event, emit) async {
-      final providers = [
-        AppContentProvider.dramabox,
-        AppContentProvider.netshort,
+  /// Raw (non-pseudo) providers from the last preload, used to rebuild the
+  /// provider list whenever the adult lock changes.
+  List<NartoProvider>? _rawProviders;
+
+  HomeBloc({
+    required this.repository,
+    required this.crossProviderService,
+    required this.adultLockCubit,
+  }) : super(HomeInitial()) {
+
+    List<NartoProvider> withPseudoProviders(List<NartoProvider> providers) {
+      return [
+        ...providers,
+        const NartoProvider(
+          key: CrossProviderService.dubbedKey,
+          label: 'Dubbed',
+        ),
+        if (adultLockCubit.isUnlocked)
+          const NartoProvider(
+            key: CrossProviderService.adultKey,
+            label: '18+',
+          ),
       ];
+    }
 
-      Map<AppContentProvider, List<DramaSectionModel>> sectionsMap = {};
+    adultLockCubit.stream.listen((unlocked) {
+      final current = state;
+      if (current is! HomeLoaded) return;
+      final providers = withPseudoProviders(_rawProviders ?? current.nartoProviders);
+      var activeKey = current.activeNartoProvider;
+      if (!unlocked && activeKey == CrossProviderService.adultKey) {
+        activeKey = (_rawProviders != null && _rawProviders!.isNotEmpty)
+            ? _rawProviders!.first.key
+            : activeKey;
+        crossProviderService.invalidate();
+      }
+      emit(current.copyWith(
+        nartoProviders: providers,
+        activeNartoProvider: activeKey,
+      ));
+    });
+
+    on<PreloadAllEvent>((event, emit) async {
+      Map<String, List<DramaSectionModel>> sectionsMap = {};
       if (state is HomeLoaded) {
         sectionsMap = Map.of((state as HomeLoaded).providerSections);
       }
 
-      // 1. Load cached for both first
-      for (final provider in providers) {
+      try {
+        final data = await repository.getNartoHomeData();
+        if (data.providers.isEmpty || data.sections.isEmpty) {
+          emit(HomeError('Failed to load Narto home'));
+          return;
+        }
+
+        final activeKey = data.activeProvider.isEmpty
+            ? data.providers.first.key
+            : data.activeProvider;
+        _rawProviders = data.providers;
+        sectionsMap[activeKey] = data.sections;
+        emit(
+          HomeLoaded(
+            providerSections: Map.of(sectionsMap),
+            nartoProviders: withPseudoProviders(data.providers),
+            activeNartoProvider: activeKey,
+          ),
+        );
+      } catch (e) {
+        debugPrint('Error preloading Narto: $e');
         final cached = await repository.getCachedHomeSections(
-          provider: provider,
+          nartoProviderKey: 'bibishort',
         );
         if (cached != null && cached.isNotEmpty) {
-          sectionsMap[provider] = cached;
+          emit(
+            HomeLoaded(
+              providerSections: {'bibishort': cached},
+              nartoProviders: const [],
+              activeNartoProvider: 'bibishort',
+            ),
+          );
+        } else {
+          emit(HomeError(e.toString()));
         }
       }
-
-      if (sectionsMap.isNotEmpty) {
-        emit(HomeLoaded(providerSections: sectionsMap));
-      } else {
-        emit(HomeLoading());
-      }
-
-      // 2. Fetch fresh for both
-      await Future.wait(
-        providers.map((provider) async {
-          try {
-            final sections = await repository.getHomeSections(
-              provider: provider,
-            );
-            sectionsMap[provider] = sections;
-            if (state is HomeLoaded) {
-              final s = state as HomeLoaded;
-              emit(
-                s.copyWith(
-                  providerSections: Map.of(sectionsMap),
-                  searchResults: s.searchResults,
-                ),
-              );
-            } else {
-              emit(HomeLoaded(providerSections: Map.of(sectionsMap)));
-            }
-          } catch (e) {
-            debugPrint("Error preloading $provider: $e");
-          }
-        }),
-      );
     });
 
     on<FetchHomeDataEvent>((event, emit) async {
-      final provider = event.provider;
+      final key = event.nartoProviderKey;
+      if (key == null || key.isEmpty) return;
+      if (key == CrossProviderService.adultKey && !adultLockCubit.isUnlocked) {
+        return;
+      }
 
       if (state is! HomeLoaded) {
         emit(HomeLoading());
+      } else if (state is HomeLoaded &&
+          !(state as HomeLoaded).providerSections.containsKey(key)) {
+        // Immediately mark the target as active so a shimmer is shown while
+        // the (possibly slow) aggregated scan runs.
+        emit((state as HomeLoaded).copyWith(activeNartoProvider: key));
       }
 
       try {
-        final sections = await repository.getHomeSections(provider: provider);
         final sectionsMap = state is HomeLoaded
             ? Map.of((state as HomeLoaded).providerSections)
-            : <AppContentProvider, List<DramaSectionModel>>{};
+            : <String, List<DramaSectionModel>>{};
 
-        sectionsMap[provider] = sections;
+        List<DramaSectionModel> sections;
+        if (key == CrossProviderService.dubbedKey) {
+          sections = await crossProviderService.getDubbedSections();
+        } else if (key == CrossProviderService.adultKey) {
+          sections = await crossProviderService.getAdultSections();
+        } else {
+          sections = await repository.getHomeSections(
+            provider: event.provider,
+            nartoProviderKey: key,
+          );
+        }
+
+        sectionsMap[key] = sections;
 
         if (state is HomeLoaded) {
-          emit((state as HomeLoaded).copyWith(providerSections: sectionsMap));
+          emit(
+            (state as HomeLoaded).copyWith(
+              providerSections: sectionsMap,
+              activeNartoProvider: key,
+            ),
+          );
         } else {
-          emit(HomeLoaded(providerSections: sectionsMap));
+          emit(HomeLoaded(providerSections: sectionsMap, activeNartoProvider: key));
         }
       } catch (e) {
         if (state is! HomeLoaded) {
@@ -180,41 +242,27 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       if (state is! HomeLoaded) return;
       final currentState = state as HomeLoaded;
 
-      final provider = event.provider;
-      final sectionsMap = Map<AppContentProvider, List<DramaSectionModel>>.from(
+      final key = event.nartoProviderKey ?? currentState.activeNartoProvider;
+      final sectionsMap = Map<String, List<DramaSectionModel>>.from(
         currentState.providerSections,
       );
       final sections = List<DramaSectionModel>.from(
-        sectionsMap[provider] ?? [],
+        sectionsMap[key] ?? [],
       );
 
       if (event.sectionIndex >= sections.length) return;
 
       final section = sections[event.sectionIndex];
-      // Only For You supports pagination for Dramabox
-      if (provider == AppContentProvider.dramabox &&
-          section.name != 'For You') {
-        return;
-      }
-
+      if (section.name != 'For You') return;
       if (!section.hasMore) return;
 
       final nextPage = section.currentPage + 1;
 
       try {
-        final List<DramaModel> moreDramas;
-        if (provider == AppContentProvider.dramabox) {
-          moreDramas = await repository.getForYouDramas(
-            provider: provider,
-            page: nextPage,
-          );
-        } else {
-          // Use Trending as ForYou for Netshort as per current repository mapping
-          moreDramas = await repository.getTrendingDramas(
-            provider: provider,
-            page: nextPage,
-          );
-        }
+        final moreDramas = await repository.getForYouDramas(
+          provider: event.provider,
+          page: nextPage,
+        );
 
         if (moreDramas.isEmpty) {
           sections[event.sectionIndex] = section.copyWith(hasMore: false);
@@ -222,57 +270,19 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           sections[event.sectionIndex] = section.copyWith(
             dramas: [...section.dramas, ...moreDramas],
             currentPage: nextPage,
-            // Assuming 10+ items means there might be more
             hasMore: moreDramas.length >= 10,
           );
         }
 
-        sectionsMap[provider] = sections;
+        sectionsMap[key] = sections;
         emit(currentState.copyWith(providerSections: sectionsMap));
       } catch (e) {
         debugPrint("Error loading more dramas: $e");
       }
     });
-
-    on<SearchDramasEvent>((event, emit) async {
-      final provider = event.provider;
-      if (event.query.isEmpty) {
-        add(FetchHomeDataEvent(provider: provider));
-        return;
-      }
-
-      final currentState = state;
-
-      emit(HomeLoading());
-      try {
-        final searchResults = await repository.searchDramas(
-          event.query,
-          provider: provider,
-        );
-        final sectionsMap = currentState is HomeLoaded
-            ? currentState.providerSections
-            : <AppContentProvider, List<DramaSectionModel>>{};
-
-        emit(
-          HomeLoaded(
-            providerSections: sectionsMap,
-            searchResults: searchResults,
-          ),
-        );
-      } catch (e) {
-        emit(_errorFromException(e));
-      }
-    });
   }
 
   HomeError _errorFromException(Object e) {
-    if (e is ApiBlockedException) {
-      return HomeError(e.message, isApiBlocked: true);
-    }
-    if (e is DioException && e.error is ApiBlockedException) {
-      final abe = e.error as ApiBlockedException;
-      return HomeError(abe.message, isApiBlocked: true);
-    }
     return HomeError(e.toString());
   }
 }

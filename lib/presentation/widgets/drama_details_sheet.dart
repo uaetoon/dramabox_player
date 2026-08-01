@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dramabox_free/core/localization/app_localizations.dart';
 import 'package:dramabox_free/data/models/drama_model.dart';
 import 'package:dramabox_free/data/models/episode_model.dart';
 
@@ -51,7 +52,7 @@ class DramaDetailsSheet extends StatelessWidget {
                     length: hasDescription ? 2 : 1,
                     child: Column(
                       children: [
-                        _buildTabBar(hasDescription),
+                        _buildTabBar(context, hasDescription),
                         Expanded(
                           child: TabBarView(
                             children: [
@@ -116,7 +117,7 @@ class DramaDetailsSheet extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '${episodes.length} Episodes',
+                  AppStrings.episodesCount(context, episodes.length),
                   style: TextStyle(color: Colors.grey[400], fontSize: 14),
                 ),
                 const SizedBox(height: 8),
@@ -155,7 +156,7 @@ class DramaDetailsSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildTabBar(bool hasDescription) {
+  Widget _buildTabBar(BuildContext context, bool hasDescription) {
     return TabBar(
       indicatorColor: Colors.amber,
       dividerColor: Colors.transparent,
@@ -163,8 +164,8 @@ class DramaDetailsSheet extends StatelessWidget {
       unselectedLabelColor: Colors.grey,
       labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
       tabs: [
-        const Tab(text: 'EPISODES'),
-        if (hasDescription) const Tab(text: 'DESCRIPTION'),
+        Tab(text: AppStrings.episodesTab(context)),
+        if (hasDescription) Tab(text: AppStrings.descriptionTab(context)),
       ],
     );
   }

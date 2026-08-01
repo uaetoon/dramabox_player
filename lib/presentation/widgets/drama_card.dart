@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../data/models/drama_model.dart';
 import '../../core/constants/app_enums.dart';
+import 'platform_badge.dart';
 
 class DramaCard extends StatelessWidget {
   final DramaModel drama;
@@ -14,6 +16,11 @@ class DramaCard extends StatelessWidget {
   final int? watchedPosition;
   final int? totalDuration;
   final bool hideHotCode;
+  final bool? isFavorite;
+  final VoidCallback? onToggleFavorite;
+
+  /// When set, renders a platform badge overlay on the cover.
+  final String nartoProviderKey;
 
   const DramaCard({
     super.key,
@@ -26,10 +33,15 @@ class DramaCard extends StatelessWidget {
     this.watchedPosition,
     this.totalDuration,
     this.hideHotCode = false,
+    this.isFavorite,
+    this.onToggleFavorite,
+    this.nartoProviderKey = '',
   });
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasPlayData =
         drama.hotCode != null &&
         drama.hotCode != '0' &&
@@ -44,23 +56,55 @@ class DramaCard extends StatelessWidget {
             child: Stack(
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   child: CachedNetworkImage(
                     imageUrl: drama.coverWap,
                     height: double.infinity,
                     width: double.infinity,
                     fit: BoxFit.cover,
                     placeholder: (context, url) => Shimmer.fromColors(
-                      baseColor: Colors.grey[900]!,
-                      highlightColor: Colors.grey[800]!,
-                      child: Container(color: Colors.black),
+                      baseColor: isDark
+                          ? const Color(0xFF232326)
+                          : const Color(0xFFE4E1DA),
+                      highlightColor: isDark
+                          ? const Color(0xFF2E2E33)
+                          : const Color(0xFFF0EEE9),
+                      child: Container(color: scheme.surface),
                     ),
                     errorWidget: (context, url, error) => Container(
-                      color: Colors.grey[900],
-                      child: const Icon(Icons.error, color: Colors.grey),
+                      color: scheme.surfaceContainerHighest,
+                      child: Icon(
+                        Icons.movie_creation_outlined,
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
+                // Favorite toggle (Top Right)
+                if (onToggleFavorite != null)
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: onToggleFavorite,
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isFavorite == true
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          color: isFavorite == true
+                              ? Colors.redAccent
+                              : Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                    ),
+                  ),
                 // Episode Info (Top Left)
                 if (showChapterCount && drama.chapterCount > 0)
                   Positioned(
@@ -74,12 +118,12 @@ class DramaCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.75),
                         borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(12),
-                          bottomRight: Radius.circular(12),
+                          topLeft: Radius.circular(14),
+                          bottomRight: Radius.circular(14),
                         ),
                       ),
                       child: Text(
-                        '${drama.chapterCount} Ep',
+                        '${drama.chapterCount} ${AppStrings.ep(context)}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,
@@ -112,9 +156,17 @@ class DramaCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                // Platform Badge (Bottom Left)
+                if (nartoProviderKey.isNotEmpty)
+                  Positioned(
+                    bottom: 6,
+                    left: 6,
+                    child: PlatformBadge(providerKey: nartoProviderKey),
+                  ),
                 // Last Watched Progress (Bottom Overlay)
                 if (lastWatchedIndex != null && lastWatchedIndex! >= 0)
                   _buildProgressBadge(
+                    context,
                     lastWatchedIndex!,
                     watchedPosition: watchedPosition,
                     totalDuration: totalDuration,
@@ -122,10 +174,10 @@ class DramaCard extends StatelessWidget {
                 else if (lastWatchedFuture != null)
                   FutureBuilder<int>(
                     future: lastWatchedFuture,
-                    builder: (context, snapshot) {
+                    builder: (ctx, snapshot) {
                       final index = snapshot.data ?? -1;
                       if (index < 0) return const SizedBox.shrink();
-                      return _buildProgressBadge(index);
+                      return _buildProgressBadge(ctx, index);
                     },
                   ),
               ],
@@ -141,8 +193,8 @@ class DramaCard extends StatelessWidget {
                   drama.bookName,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: scheme.onSurface,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     height: 1.2,
@@ -153,7 +205,7 @@ class DramaCard extends StatelessWidget {
                   Text(
                     drama.tags[1],
                     style: TextStyle(
-                      color: Colors.grey[500],
+                      color: scheme.onSurfaceVariant,
                       fontSize: 11,
                       fontWeight: FontWeight.w400,
                     ),
@@ -170,6 +222,7 @@ class DramaCard extends StatelessWidget {
   }
 
   Widget _buildProgressBadge(
+    BuildContext context,
     int index, {
     int? watchedPosition,
     int? totalDuration,
@@ -187,8 +240,8 @@ class DramaCard extends StatelessWidget {
       right: 0,
       child: ClipRRect(
         borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(12),
-          bottomRight: Radius.circular(12),
+          bottomLeft: Radius.circular(14),
+          bottomRight: Radius.circular(14),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -198,7 +251,7 @@ class DramaCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               color: Colors.amber.withValues(alpha: 0.95),
               child: Text(
-                'LAST WATCHED EP ${index + 1}',
+                AppStrings.lastWatched(context, index + 1),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.black,

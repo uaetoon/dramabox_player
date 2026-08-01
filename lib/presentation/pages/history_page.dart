@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:dramabox_free/core/localization/app_localizations.dart';
 import 'package:dramabox_free/presentation/widgets/drama_card.dart';
 import '../../data/models/history_model.dart';
 import '../blocs/history_bloc.dart';
-import '../pages/player_page.dart';
+import '../pages/drama_detail_page.dart';
 
 class HistoryPage extends StatelessWidget {
   const HistoryPage({super.key});
@@ -11,16 +12,13 @@ class HistoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        elevation: 0,
-        title: const Text(
-          'History',
+        title: Text(
+          AppStrings.history(context),
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 24,
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ),
@@ -28,15 +26,13 @@ class HistoryPage extends StatelessWidget {
         builder: (context, state) {
           if (state is HistoryLoading) {
             return const Center(
-              child: CircularProgressIndicator(color: Colors.amber),
+              child: CircularProgressIndicator(),
             );
           } else if (state is HistoryLoaded) {
             if (state.history.isEmpty) {
-              return _buildEmptyState();
+              return _buildEmptyState(context);
             }
             return RefreshIndicator(
-              color: Colors.amber,
-              backgroundColor: Colors.grey[900],
               onRefresh: () async {
                 context.read<HistoryBloc>().add(LoadHistoryEvent());
               },
@@ -49,17 +45,14 @@ class HistoryPage extends StatelessWidget {
                 children: [
                   Text(
                     state.message,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
                       context.read<HistoryBloc>().add(LoadHistoryEvent());
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber,
-                    ),
-                    child: const Text('Retry'),
+                    child: Text(AppStrings.retry(context)),
                   ),
                 ],
               ),
@@ -71,7 +64,8 @@ class HistoryPage extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -79,20 +73,20 @@ class HistoryPage extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.grey[900]?.withValues(alpha: 0.5),
+              color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.history_rounded,
               size: 64,
-              color: Colors.grey[700],
+              color: scheme.outline,
             ),
           ),
           const SizedBox(height: 24),
-          const Text(
-            'Keep Track of Your Dramas',
+          Text(
+            AppStrings.keepTrack(context),
             style: TextStyle(
-              color: Colors.white,
+              color: scheme.onSurface,
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
@@ -101,10 +95,10 @@ class HistoryPage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(
-              "Your viewing history will appear here. Start watching dramas to keep track of where you left off!",
+              AppStrings.emptyHistory(context),
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.grey[600],
+                color: scheme.outline,
                 fontSize: 14,
                 height: 1.5,
               ),
@@ -134,6 +128,7 @@ class HistoryPage extends StatelessWidget {
         return DramaCard(
           drama: drama,
           provider: item.provider,
+          nartoProviderKey: item.nartoProviderKey,
           lastWatchedIndex: item.episodeIndex,
           watchedPosition: item.watchedPosition,
           totalDuration: item.totalDuration,
@@ -143,8 +138,12 @@ class HistoryPage extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) =>
-                    PlayerPage(drama: drama, provider: item.provider),
+                builder: (context) => DramaDetailPage(
+                  drama: drama,
+                  provider: item.provider,
+                  nartoProviderKey: item.nartoProviderKey,
+                  startIndex: item.episodeIndex,
+                ),
               ),
             );
           },

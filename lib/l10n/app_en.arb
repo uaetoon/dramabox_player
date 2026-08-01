@@ -1,0 +1,125 @@
+{
+  "@@locale": "en",
+  "appName": "QuickPlay",
+  "searchDramas": "Search dramas...",
+  "noResultsFound": "No results found",
+  "history": "History",
+  "episodes": "Episodes",
+  "ep": "Ep",
+  "lastWatched": "LAST WATCHED EP {epNum}",
+  "@lastWatched": {
+    "placeholders": {
+      "epNum": {
+        "type": "int"
+      }
+    }
+  },
+  "fetchingEpisodes": "Fetching episodes...",
+  "thisMayTake": "This may take a moment depending on your connection.",
+  "back": "Back",
+  "retry": "Retry",
+  "videoDecryptionFailed": "Video decryption failed. Please try again.",
+  "keepTrack": "Keep Track of Your Dramas",
+  "emptyHistory": "Your viewing history will appear here. Start watching dramas to keep track of where you left off!",
+  "sectionForYou": "For You",
+  "sectionLatest": "Latest",
+  "sectionTrending": "Trending",
+  "sectionVip": "VIP",
+  "settings": "Settings",
+  "platforms": "Platforms",
+  "specialDubbed": "Dubbed",
+  "specialAdult": "18+",
+  "similarOnPlatforms": "Similar on other platforms",
+  "similarSectionHint": "Show similar dramas available on other platforms.",
+  "scanningPlatforms": "Scanning platforms...",
+  "profile": "Profile",
+  "language": "Language",
+  "english": "English",
+  "arabic": "العربية",
+  "about": "About",
+  "version": "Version {version}",
+  "@version": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "checkingUpdates": "Checking for updates... ({version})",
+  "@checkingUpdates": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadingPatch": "Downloading patch... ({version})",
+  "@downloadingPatch": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateReady": "Update ready! Restart app to apply.",
+  "updateFailed": "Update failed",
+  "serverUnavailable": "Server Unavailable",
+  "serverBlockedMessage": "The API server is temporarily blocking requests due to high traffic. Please wait a moment and try again.",
+  "episodesCount": "{count} Episodes",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "episodesTab": "EPISODES",
+  "descriptionTab": "DESCRIPTION",
+  "speedPlaying": "1.5x Speed Playing",
+  "subtitles": "Subtitles",
+  "subtitleOff": "Off",
+  "videoUrlEmpty": "Video URL is empty",
+  "search": "Search",
+  "myList": "My List",
+  "watchHistory": "Watch History",
+  "theme": "Theme",
+  "themeDark": "Dark",
+  "themeLight": "Light",
+  "themeSystem": "System",
+  "searchHint": "Type a drama title to search across all providers",
+  "emptyMyList": "Dramas you add to My List will appear here",
+  "continueWatching": "Continue Watching",
+  "play": "Play",
+  "downloads": "Downloads",
+  "download": "Download",
+  "emptyDownloads": "Episodes you download will appear here. Download episodes from a drama page to watch offline.",
+  "downloadPaused": "Paused",
+  "downloadFailed": "Download failed",
+  "downloadCompleted": "Downloaded",
+  "downloadQueued": "Queued",
+  "pause": "Pause",
+  "resume": "Resume",
+  "cancel": "Cancel",
+  "deleteDownload": "Delete download",
+  "deleteDownloadConfirm": "Delete this download?",
+  "downloadAllTooltip": "Download all episodes",
+  "downloadsQueued": "{count} episodes queued for download",
+  "@downloadsQueued": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "comingSoon": "Coming soon",
+  "episodeNotAvailable": "This episode is not available yet. Try again later.",
+  "adultContent": "Adult Content",
+  "adultContentHint": "Show the 18+ provider in the home bar. Unlocking requires a code.",
+  "enterCode": "Enter code",
+  "wrongCode": "Incorrect code. Try again.",
+  "unlockAdultContent": "Unlock adult content",
+  "lockAdultContent": "Lock adult content",
+  "unlocked": "Unlocked",
+  "locked": "Locked",
+  "confirm": "Confirm"
+}

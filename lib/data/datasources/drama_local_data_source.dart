@@ -3,7 +3,9 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../models/drama_model.dart';
 import '../models/drama_section_model.dart';
 import '../models/episode_model.dart';
+import '../models/favorite_model.dart';
 import '../models/history_model.dart';
+import '../../core/constants/app_enums.dart';
 
 abstract class DramaLocalDataSource {
   Future<void> cacheTrendingDramas(List<DramaModel> dramas);
@@ -26,6 +28,10 @@ abstract class DramaLocalDataSource {
   Future<Map<String, dynamic>?> getEpisodeProgress(String bookId, int index);
   Future<void> saveHistory(HistoryModel history);
   Future<List<HistoryModel>> getHistory();
+  Future<void> saveFavorite(FavoriteModel favorite);
+  Future<void> removeFavorite(String bookId, AppContentProvider provider);
+  Future<bool> isFavorite(String bookId, AppContentProvider provider);
+  Future<List<FavoriteModel>> getFavorites();
 }
 
 class DramaLocalDataSourceImpl implements DramaLocalDataSource {
@@ -36,6 +42,16 @@ class DramaLocalDataSourceImpl implements DramaLocalDataSource {
   static const String episodesBox = 'episodes_cache';
   static const String progressBox = 'playback_progress';
   static const String historyBox = 'watch_history';
+  static const String favoritesBox = 'favorites_box';
+
+  static String _hiveKey(String raw) {
+    var hash = 0xcbf29ce484222325;
+    for (final unit in raw.codeUnits) {
+      hash ^= unit;
+      hash = (hash * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF;
+    }
+    return 'k$hash';
+  }
 
   @override
   Future<void> cacheTrendingDramas(List<DramaModel> dramas) async {
@@ -95,18 +111,43 @@ class DramaLocalDataSourceImpl implements DramaLocalDataSource {
   Future<void> cacheEpisodes(String bookId, List<EpisodeModel> episodes) async {
     final box = await Hive.openBox(episodesBox);
     final jsonList = episodes.map((e) => e.toJson()).toList();
-    await box.put(bookId, jsonEncode(jsonList));
+    await box.put(
+      _hiveKey(bookId),
+      jsonEncode({
+        'v': _episodesCacheVersion,
+        'updatedAt': DateTime.now().millisecondsSinceEpoch,
+        'items': jsonList,
+      }),
+    );
   }
+
+  static const int _episodesCacheVersion = 3;
+  static const Duration _episodesCacheTtl = Duration(hours: 24);
 
   @override
   Future<List<EpisodeModel>?> getEpisodes(String bookId) async {
     final box = await Hive.openBox(episodesBox);
-    final String? cached = box.get(bookId);
-    if (cached != null) {
-      final List decoded = jsonDecode(cached);
-      return decoded.map((e) => EpisodeModel.fromJson(e)).toList();
+    final String? cached = box.get(_hiveKey(bookId));
+    if (cached == null) return null;
+    final dynamic decoded;
+    try {
+      decoded = jsonDecode(cached);
+    } catch (_) {
+      return null;
     }
-    return null;
+    if (decoded is! Map) return null;
+    if (decoded['v'] != _episodesCacheVersion) return null;
+    final updatedAt = decoded['updatedAt'] is int
+        ? decoded['updatedAt'] as int
+        : 0;
+    final age = DateTime.now().millisecondsSinceEpoch - updatedAt;
+    if (age > _episodesCacheTtl.inMilliseconds) return null;
+    final items = decoded['items'];
+    if (items is! List || items.isEmpty) return null;
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map((e) => EpisodeModel.fromJson(e))
+        .toList();
   }
 
   @override
@@ -117,10 +158,11 @@ class DramaLocalDataSourceImpl implements DramaLocalDataSource {
     int duration = 0,
   }) async {
     final box = await Hive.openBox(progressBox);
-    await box.put(bookId, index);
+    final key = _hiveKey(bookId);
+    await box.put(key, index);
 
     // Save detailed progress for this episode
-    final detailKey = '${bookId}_$index';
+    final detailKey = '${key}_$index';
     await box.put(detailKey, {
       'position': position,
       'duration': duration,
@@ -131,7 +173,7 @@ class DramaLocalDataSourceImpl implements DramaLocalDataSource {
   @override
   Future<int> getLastWatchedIndex(String bookId) async {
     final box = await Hive.openBox(progressBox);
-    final value = box.get(bookId);
+    final value = box.get(_hiveKey(bookId));
     if (value is int) return value;
     return -1;
   }
@@ -142,7 +184,7 @@ class DramaLocalDataSourceImpl implements DramaLocalDataSource {
     int index,
   ) async {
     final box = await Hive.openBox(progressBox);
-    final detailKey = '${bookId}_$index';
+    final detailKey = '${_hiveKey(bookId)}_$index';
     final value = box.get(detailKey);
     if (value is Map) {
       return Map<String, dynamic>.from(value);
@@ -207,5 +249,47 @@ class DramaLocalDataSourceImpl implements DramaLocalDataSource {
       return decoded.map((e) => HistoryModel.fromJson(e)).toList();
     }
     return [];
+  }
+
+  @override
+  Future<void> saveFavorite(FavoriteModel favorite) async {
+    final box = await Hive.openBox(favoritesBox);
+    final key = _hiveKey('${favorite.provider.name}_${favorite.drama.bookId}');
+    await box.put(key, jsonEncode(favorite.toJson()));
+  }
+
+  @override
+  Future<void> removeFavorite(
+    String bookId,
+    AppContentProvider provider,
+  ) async {
+    final box = await Hive.openBox(favoritesBox);
+    await box.delete(_hiveKey('${provider.name}_$bookId'));
+  }
+
+  @override
+  Future<bool> isFavorite(
+    String bookId,
+    AppContentProvider provider,
+  ) async {
+    final box = await Hive.openBox(favoritesBox);
+    return box.containsKey(_hiveKey('${provider.name}_$bookId'));
+  }
+
+  @override
+  Future<List<FavoriteModel>> getFavorites() async {
+    final box = await Hive.openBox(favoritesBox);
+    final result = <FavoriteModel>[];
+    for (final value in box.values) {
+      if (value is String) {
+        try {
+          result.add(FavoriteModel.fromJson(jsonDecode(value)));
+        } catch (_) {
+          // ignore malformed entries
+        }
+      }
+    }
+    result.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+    return result;
   }
 }
