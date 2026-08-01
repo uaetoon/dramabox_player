@@ -86,6 +86,16 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
   bool _finishedTriggered = false;
   bool _watchedTriggered = false;
   int _lastReportedSecond = -1;
+  bool _isBuffering = false;
+
+  // Resilience for slow/flaky connections: auto-retry with backoff on
+  // transient network failures (init and mid-playback), and recovery of the
+  // playback position after a runtime error.
+  static const int _maxRetries = 3;
+  int _retryAttempts = 0;
+  bool _recovering = false;
+  String? _lastErrorDescription;
+  Duration _recoveryPosition = Duration.zero;
 
   // Subtitle state
   SubtitleModel? _selectedSubtitle;
@@ -122,9 +132,9 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
     }
   }
 
-  void _initializeController() async {
+  Future<void> _initializeController() async {
     if (_isInitializing) return;
-      if (widget.episode.videoUrl.isEmpty) {
+    if (widget.episode.videoUrl.isEmpty) {
       if (mounted) {
         setState(() {
           _hasError = true;
@@ -141,10 +151,15 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
         _isInitializing = true;
         _hasError = false;
         _errorMessage = '';
+        _isBuffering = false;
       });
     }
 
     try {
+      // Dispose any previous failed controller before creating a new one.
+      _player?.dispose();
+      _player = null;
+
       // Downloaded episodes play straight from local storage (no proxy, no
       // faststart reassembly needed since local reads are cheap).
       File? localFile;
@@ -212,6 +227,9 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
         setState(() {
           _isInitialized = true;
           _isInitializing = false;
+          _retryAttempts = 0;
+          _lastErrorDescription = null;
+          _isBuffering = false;
         });
 
         if (widget.initialPosition > 0) {
@@ -226,7 +244,21 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
       }
     } catch (e) {
       debugPrint("Error initializing video: $e");
-      if (mounted) {
+      if (!mounted) return;
+      _retryAttempts++;
+      if (_retryAttempts < _maxRetries) {
+        // Transient network errors are common on slow connections; retry with
+        // a short backoff before giving up and showing the manual retry UI.
+        debugPrint('DIAG retrying video init ($_retryAttempts/$_maxRetries)');
+        setState(() {
+          _isInitializing = false;
+          _hasError = false;
+          _errorMessage = '';
+        });
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) _initializeController();
+        });
+      } else {
         setState(() {
           _hasError = true;
           _errorMessage = e.toString();
@@ -234,6 +266,51 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
         });
       }
     }
+  }
+
+  Future<void> _recoverFromError() async {
+    if (_retryAttempts >= _maxRetries) {
+      if (mounted) {
+        setState(() {
+          _recovering = false;
+          _hasError = true;
+          _errorMessage = _lastErrorDescription ?? 'Playback error';
+          _isInitialized = false;
+          _isInitializing = false;
+        });
+      }
+      return;
+    }
+    _retryAttempts++;
+    final resumePosition = _recoveryPosition;
+    _player?.dispose();
+    _player = null;
+    if (mounted) {
+      setState(() {
+        _isInitialized = false;
+        _isInitializing = false;
+        _hasError = false;
+        _errorMessage = '';
+        _isBuffering = false;
+      });
+    }
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    await _initializeController();
+    // Resume where playback stalled instead of restarting the episode.
+    if (mounted && _isInitialized && _player != null &&
+        resumePosition > Duration.zero) {
+      _player!.controller.seekTo(resumePosition);
+    }
+    _recovering = false;
+  }
+
+  void _manualRetry() {
+    _retryAttempts = 0;
+    _lastErrorDescription = null;
+    _recovering = false;
+    _recoveryPosition = Duration.zero;
+    _initializeController();
   }
 
   SubtitleModel _getDefaultSubtitle() {
@@ -561,6 +638,28 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
 
     final player = _player;
     if (player == null) return;
+
+    // Surface a buffering indicator while the player is stalled on a slow
+    // connection. Only rebuild when the state actually changes.
+    final buffering = player.controller.value.isBuffering;
+    if (buffering != _isBuffering) {
+      setState(() => _isBuffering = buffering);
+    }
+
+    // Detect runtime playback errors (e.g. a dropped HLS segment on a flaky
+    // network) and recover automatically instead of stalling silently.
+    final err = player.controller.value.errorDescription;
+    if (err != null && err != _lastErrorDescription && !_recovering) {
+      _lastErrorDescription = err;
+      _recoveryPosition = player.controller.value.position;
+      debugPrint(
+        'DIAG runtime playback error: $err '
+        '(attempt ${_retryAttempts + 1}) at ${_recoveryPosition.inSeconds}s',
+      );
+      _recoverFromError();
+      return;
+    }
+
     final position = player.controller.value.position;
     final duration = player.controller.value.duration;
 
@@ -627,6 +726,10 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
       _isInitialized = false;
       _finishedTriggered = false;
       _watchedTriggered = false;
+      _retryAttempts = 0;
+      _lastErrorDescription = null;
+      _recovering = false;
+      _isBuffering = false;
       _player?.dispose();
       _player = null;
       _captions = [];
@@ -789,6 +892,28 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                     child: CircularProgressIndicator(color: Colors.white24),
                   ),
 
+                // Buffering indicator while playback is stalled on a slow connection
+                if (_isInitialized && _isBuffering && !_hasError)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(color: Colors.white70),
+                          const SizedBox(height: 12),
+                          Text(
+                            AppStrings.buffering(context),
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
                 // Error UI
                 if (_hasError)
                   Center(
@@ -814,7 +939,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                               backgroundColor: Colors.white24,
                               foregroundColor: Colors.white,
                             ),
-                            onPressed: _initializeController,
+                            onPressed: _manualRetry,
                             child: Text(AppStrings.retry(context)),
                           ),
                         ],

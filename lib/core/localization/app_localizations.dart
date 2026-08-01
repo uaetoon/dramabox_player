@@ -13,6 +13,7 @@ class AppStrings {
   static String thisMayTake(BuildContext context) => AppLocalizations.of(context).thisMayTake;
   static String back(BuildContext context) => AppLocalizations.of(context).back;
   static String retry(BuildContext context) => AppLocalizations.of(context).retry;
+  static String buffering(BuildContext context) => AppLocalizations.of(context).buffering;
   static String videoDecryptionFailed(BuildContext context) => AppLocalizations.of(context).videoDecryptionFailed;
   static String keepTrack(BuildContext context) => AppLocalizations.of(context).keepTrack;
   static String emptyHistory(BuildContext context) => AppLocalizations.of(context).emptyHistory;

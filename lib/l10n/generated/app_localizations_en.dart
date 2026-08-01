@@ -45,6 +45,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Retry';
 
   @override
+  String get buffering => 'Buffering...';
+
+  @override
   String get videoDecryptionFailed =>
       'Video decryption failed. Please try again.';
 

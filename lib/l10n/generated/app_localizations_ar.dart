@@ -44,6 +44,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get retry => 'إعادة المحاولة';
 
   @override
+  String get buffering => 'جارٍ التحميل...';
+
+  @override
   String get videoDecryptionFailed => 'فشل فك تشفير الفيديو. حاول مرة أخرى.';
 
   @override

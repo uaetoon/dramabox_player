@@ -164,6 +164,12 @@ abstract class AppLocalizations {
   /// **'Retry'**
   String get retry;
 
+  /// No description provided for @buffering.
+  ///
+  /// In en, this message translates to:
+  /// **'Buffering...'**
+  String get buffering;
+
   /// No description provided for @videoDecryptionFailed.
   ///
   /// In en, this message translates to:
