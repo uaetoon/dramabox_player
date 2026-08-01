@@ -68,7 +68,55 @@ class NartoRemoteDataSource {
     debugPrint(
       'Narto: loaded ${data.providers.length} providers, active=${data.activeProvider}, ${data.sections.length} sections',
     );
+    // Some providers (e.g. DramaBox) are served by the JSON feed with
+    // untranslated (Indonesian) titles. The server-rendered HTML grid is
+    // localized, so fall back to it to keep the feed Arabic.
+    if (!_hasArabicSections(data.sections)) {
+      final arabicSections = await _scrapeArabicHomeSections(providerKey);
+      if (arabicSections != null && arabicSections.isNotEmpty) {
+        final count = arabicSections.fold<int>(
+          0,
+          (n, s) => n + s.dramas.length,
+        );
+        debugPrint(
+          'Narto: provider $providerKey served non-Arabic JSON feed, '
+          'using Arabic HTML grid ($count dramas)',
+        );
+        return NartoHomeData(
+          providers: data.providers,
+          activeProvider: data.activeProvider,
+          sections: arabicSections,
+          sectionsWithKeys: data.sectionsWithKeys,
+        );
+      }
+    }
     return data;
+  }
+
+  /// Fetches the server-rendered home page for a provider, which localizes
+  /// drama titles, and parses its grid of `<article class="card">` items.
+  Future<List<DramaSectionModel>?> _scrapeArabicHomeSections(
+    String? providerKey,
+  ) async {
+    try {
+      final response = await dio.get<String>(
+        '/',
+        queryParameters: {
+          if (providerKey != null && providerKey.isNotEmpty)
+            'provider': providerKey,
+          'lang': _lang,
+          'target_lang': _lang,
+        },
+        options: Options(responseType: ResponseType.plain),
+      );
+      final html = response.data ?? '';
+      if (html.isEmpty) return null;
+      final sections = _parseHomeGrid(html);
+      return sections.isEmpty ? null : sections;
+    } catch (e) {
+      debugPrint('Narto: Arabic home grid scrape failed for $providerKey: $e');
+      return null;
+    }
   }
 
   /// Returns raw sections retaining tab key/label for a provider.
@@ -289,6 +337,65 @@ DramaModel _dramaFromJson(Map<String, dynamic> json) {
     chapterCount: 0,
     hotCode: null,
   );
+}
+
+/// Extracts the server-rendered (Arabic) drama grid from the home HTML page.
+List<DramaSectionModel> _parseHomeGrid(String html) {
+  final dramaPattern = RegExp(
+    r'<article\s+class="card"[\s\S]*?data-watch-url="([^"]+)"'
+    r'[\s\S]*?data-movie-title="([^"]+)"'
+    r'[\s\S]*?<img class="poster" src="([^"]+)"',
+  );
+  final dramas = <DramaModel>[];
+  for (final match in dramaPattern.allMatches(html)) {
+    final watchUrl = match.group(1)?.replaceAll('&amp;', '&') ?? '';
+    final title = _decodeHtmlEntities(
+      match.group(2)?.replaceAll('&amp;', '&') ?? '',
+    );
+    var cover = match.group(3) ?? '';
+    if (watchUrl.isEmpty || title.isEmpty) continue;
+    if (!cover.startsWith('http')) {
+      cover = 'https://narto-drama.com${cover.startsWith('/') ? cover : '/$cover'}';
+    }
+    dramas.add(
+      DramaModel(
+        bookId: watchUrl,
+        bookName: title,
+        coverWap: cover,
+        introduction: '',
+        tags: const [],
+        protagonist: '',
+        chapterCount: 0,
+      ),
+    );
+  }
+  if (dramas.isEmpty) return const <DramaSectionModel>[];
+  return [
+    DramaSectionModel(
+      name: 'For You',
+      dramas: dramas,
+      hasMore: false,
+    ),
+  ];
+}
+
+/// Returns true when any section drama title contains Arabic script.
+bool _hasArabicSections(List<DramaSectionModel> sections) {
+  final arabic = RegExp(r'[\u0600-\u06FF]');
+  for (final section in sections) {
+    for (final drama in section.dramas) {
+      if (arabic.hasMatch(drama.bookName)) return true;
+    }
+  }
+  return false;
+}
+
+String _decodeHtmlEntities(String value) {
+  return value
+      .replaceAll('&quot;', '"')
+      .replaceAll('&#39;', "'")
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>');
 }
 
 /// Decodes + maps a `/home/providers/sections` payload off the main isolate.
