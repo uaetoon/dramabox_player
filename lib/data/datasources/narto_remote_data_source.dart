@@ -99,20 +99,41 @@ class NartoRemoteDataSource {
     String? providerKey,
   ) async {
     try {
-      final response = await dio.get<String>(
-        '/',
-        queryParameters: {
-          if (providerKey != null && providerKey.isNotEmpty)
-            'provider': providerKey,
-          'lang': _lang,
-          'target_lang': _lang,
-        },
-        options: Options(responseType: ResponseType.plain),
-      );
-      final html = response.data ?? '';
-      if (html.isEmpty) return null;
-      final sections = _parseHomeGrid(html);
-      return sections.isEmpty ? null : sections;
+      final baseQuery = <String, String>{
+        if (providerKey != null && providerKey.isNotEmpty)
+          'provider': providerKey,
+        'lang': _lang,
+        'target_lang': _lang,
+      };
+      final dramas = <DramaModel>[];
+      // The localized home grid is paginated (24 cards per page). Follow the
+      // pager for a few pages to surface more Arabic titles.
+      const maxPages = 3;
+      for (var page = 1; page <= maxPages; page++) {
+        final response = await dio.get<String>(
+          '/',
+          queryParameters: {
+            ...baseQuery,
+            if (page > 1) 'page': page,
+          },
+          options: Options(responseType: ResponseType.plain),
+        );
+        final html = response.data ?? '';
+        if (html.isEmpty) break;
+        final pageDramas = _parseHomeGridDramas(html);
+        if (pageDramas.isEmpty) break;
+        final before = dramas.length;
+        for (final drama in pageDramas) {
+          if (!dramas.any((d) => d.bookId == drama.bookId)) {
+            dramas.add(drama);
+          }
+        }
+        if (dramas.length == before || !_hasNextGridPage(html)) break;
+      }
+      if (dramas.isEmpty) return null;
+      return [
+        DramaSectionModel(name: 'For You', dramas: dramas, hasMore: false),
+      ];
     } catch (e) {
       debugPrint('Narto: Arabic home grid scrape failed for $providerKey: $e');
       return null;
@@ -339,8 +360,8 @@ DramaModel _dramaFromJson(Map<String, dynamic> json) {
   );
 }
 
-/// Extracts the server-rendered (Arabic) drama grid from the home HTML page.
-List<DramaSectionModel> _parseHomeGrid(String html) {
+/// Extracts the server-rendered (Arabic) drama cards from home HTML.
+List<DramaModel> _parseHomeGridDramas(String html) {
   final dramaPattern = RegExp(
     r'<article\s+class="card"[\s\S]*?data-watch-url="([^"]+)"'
     r'[\s\S]*?data-movie-title="([^"]+)"'
@@ -369,14 +390,14 @@ List<DramaSectionModel> _parseHomeGrid(String html) {
       ),
     );
   }
-  if (dramas.isEmpty) return const <DramaSectionModel>[];
-  return [
-    DramaSectionModel(
-      name: 'For You',
-      dramas: dramas,
-      hasMore: false,
-    ),
-  ];
+  return dramas;
+}
+
+/// True when the home grid HTML has a "next page" pager link.
+bool _hasNextGridPage(String html) {
+  return RegExp(
+    r'class="pager-link"[^>]*href="[^"]*page=\d+"',
+  ).hasMatch(html);
 }
 
 /// Returns true when any section drama title contains Arabic script.
