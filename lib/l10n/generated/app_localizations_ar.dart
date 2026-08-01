@@ -159,6 +159,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get myList => 'قائمتي';
 
   @override
+  String get home => 'الرئيسية';
+
+  @override
   String get watchHistory => 'سجل المشاهدة';
 
   @override

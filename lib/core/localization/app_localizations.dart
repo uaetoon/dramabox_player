@@ -47,6 +47,7 @@ class AppStrings {
   static String subtitleOff(BuildContext context) => AppLocalizations.of(context).subtitleOff;
   static String videoUrlEmpty(BuildContext context) => AppLocalizations.of(context).videoUrlEmpty;
   static String search(BuildContext context) => AppLocalizations.of(context).search;
+  static String home(BuildContext context) => AppLocalizations.of(context).home;
   static String myList(BuildContext context) => AppLocalizations.of(context).myList;
   static String watchHistory(BuildContext context) => AppLocalizations.of(context).watchHistory;
   static String theme(BuildContext context) => AppLocalizations.of(context).theme;

@@ -640,7 +640,7 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              'EP',
+                              AppStrings.ep(context),
                               style: TextStyle(
                                 color: scheme.onSurfaceVariant,
                                 fontSize: 9,

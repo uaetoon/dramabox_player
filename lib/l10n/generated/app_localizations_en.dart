@@ -162,6 +162,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get myList => 'My List';
 
   @override
+  String get home => 'Home';
+
+  @override
   String get watchHistory => 'Watch History';
 
   @override

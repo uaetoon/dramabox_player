@@ -374,6 +374,12 @@ abstract class AppLocalizations {
   /// **'My List'**
   String get myList;
 
+  /// No description provided for @home.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get home;
+
   /// No description provided for @watchHistory.
   ///
   /// In en, this message translates to:

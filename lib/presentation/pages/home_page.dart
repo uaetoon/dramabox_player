@@ -2231,31 +2231,31 @@ class _GlassNavBar extends StatelessWidget {
             child: NavigationBar(
               selectedIndex: selectedIndex,
               onDestinationSelected: onDestinationSelected,
-              destinations: const [
+              destinations: [
                 NavigationDestination(
                   icon: Icon(Icons.home_outlined),
                   selectedIcon: Icon(Icons.home_rounded),
-                  label: 'Home',
+                  label: AppStrings.home(context),
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.search_outlined),
                   selectedIcon: Icon(Icons.search_rounded),
-                  label: 'Search',
+                  label: AppStrings.search(context),
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.favorite_border_rounded),
                   selectedIcon: Icon(Icons.favorite_rounded),
-                  label: 'My List',
+                  label: AppStrings.myList(context),
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.download_outlined),
                   selectedIcon: Icon(Icons.download_rounded),
-                  label: 'Downloads',
+                  label: AppStrings.downloads(context),
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.person_outline_rounded),
                   selectedIcon: Icon(Icons.person_rounded),
-                  label: 'Profile',
+                  label: AppStrings.profile(context),
                 ),
               ],
             ),
