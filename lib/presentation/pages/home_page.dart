@@ -1610,7 +1610,7 @@ class _ProfileTab extends StatelessWidget {
                 ),
                 alignment: Alignment.center,
                 child: const Text(
-                  'Q',
+                  'U',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,

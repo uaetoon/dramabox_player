@@ -82,7 +82,7 @@ class MyApp extends StatelessWidget {
           return BlocBuilder<AppThemeCubit, ThemeMode>(
             builder: (context, themeMode) {
               return MaterialApp(
-                title: 'QuickPlay',
+                title: 'UAETooNDrama',
                 debugShowCheckedModeBanner: false,
                 theme: AppTheme.light,
                 darkTheme: AppTheme.dark,

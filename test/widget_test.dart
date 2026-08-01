@@ -20,7 +20,7 @@ void main() {
     await Hive.close();
   });
 
-  testWidgets('QuickPlay home screen renders with navigation', (tester) async {
+  testWidgets('UAETooNDrama home screen renders with navigation', (tester) async {
     await tester.pumpWidget(const MyApp());
 
     // Let the initial bloc events dispatch. Network calls fail fast in the
