@@ -175,14 +175,23 @@ class DramaRepositoryImpl implements DramaRepository {
   @override
   Future<List<DramaModel>> getForYouDramas({
     AppContentProvider provider = AppContentProvider.narto,
+    String? nartoProviderKey,
     int page = 1,
   }) async {
     try {
-      final sections = await _fetchSections(provider);
-      if (sections.isNotEmpty) {
-        return sections[0].dramas;
+      if (_isEmbeddedSite(nartoProviderKey)) {
+        final sections = await _fetchSections(
+          provider,
+          nartoProviderKey: nartoProviderKey,
+        );
+        if (sections.isNotEmpty) return sections[0].dramas;
+        return [];
       }
-      return [];
+      return await nartoDataSource.getTabDramas(
+        providerKey: nartoProviderKey,
+        tabKey: 'for-you',
+        page: page,
+      );
     } catch (e) {
       rethrow;
     }

@@ -104,6 +104,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   /// provider list whenever the adult lock changes.
   List<NartoProvider>? _rawProviders;
 
+  /// Sections currently being fetched (keyed by `provider:sectionIndex`), used
+  /// as an in-flight guard so rapid scroll events never duplicate a request.
+  final Set<String> _loadMoreInFlight = {};
+
+  /// Consecutive empty (no-fresh) pages per section, used to detect when the
+  /// server catalog has cycled back to already-seen titles.
+  final Map<String, int> _emptyPageStreaks = {};
+
   HomeBloc({
     required this.repository,
     required this.crossProviderService,
@@ -256,28 +264,57 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       if (section.name != 'For You') return;
       if (!section.hasMore) return;
 
+      // Prevent duplicate concurrent fetches for the same section: the scroll
+      // callbacks can fire faster than the network round-trip, so a plain UI
+      // flag is not enough.
+      final loadKey = '$key:${event.sectionIndex}';
+      if (_loadMoreInFlight.contains(loadKey)) return;
+      _loadMoreInFlight.add(loadKey);
+
       final nextPage = section.currentPage + 1;
 
       try {
         final moreDramas = await repository.getForYouDramas(
           provider: event.provider,
+          nartoProviderKey: key,
           page: nextPage,
         );
 
-        if (moreDramas.isEmpty) {
-          sections[event.sectionIndex] = section.copyWith(hasMore: false);
+        final existingIds = section.dramas.map((d) => d.bookId).toSet();
+        final fresh = moreDramas
+            .where((d) => !existingIds.contains(d.bookId))
+            .toList();
+
+        // The server cycles through a small catalog: page N can repeat earlier
+        // titles while a later page holds a few new ones. Only stop after
+        // several consecutive pages with no fresh titles so sparse new items
+        // are still picked up.
+        if (fresh.isEmpty) {
+          _emptyPageStreaks[loadKey] = (_emptyPageStreaks[loadKey] ?? 0) + 1;
         } else {
-          sections[event.sectionIndex] = section.copyWith(
-            dramas: [...section.dramas, ...moreDramas],
-            currentPage: nextPage,
-            hasMore: moreDramas.length >= 10,
-          );
+          _emptyPageStreaks[loadKey] = 0;
         }
+
+        debugPrint(
+          'LoadMore: key=$key page=$nextPage got=${moreDramas.length} '
+          'fresh=${fresh.length} total=${section.dramas.length + fresh.length} '
+          'emptyStreak=${_emptyPageStreaks[loadKey]}',
+        );
+
+        final exhausted =
+            moreDramas.isEmpty || (_emptyPageStreaks[loadKey] ?? 0) >= 3;
+        sections[event.sectionIndex] = section.copyWith(
+          dramas: [...section.dramas, ...fresh],
+          currentPage: nextPage,
+          hasMore: !exhausted,
+        );
 
         sectionsMap[key] = sections;
         emit(currentState.copyWith(providerSections: sectionsMap));
       } catch (e) {
         debugPrint("Error loading more dramas: $e");
+      } finally {
+        _loadMoreInFlight.remove(loadKey);
       }
     });
   }

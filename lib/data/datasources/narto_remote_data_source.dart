@@ -119,6 +119,34 @@ class NartoRemoteDataSource {
     return data;
   }
 
+  /// Fetches a specific tab page for a provider. The narto sections endpoint
+  /// paginates per-tab via `only_tab=<tab>&tab_pages[<tab>]=<page>`; a plain
+  /// `page` param is ignored by the server. Returns the dramas on that page
+  /// (empty when the tab is exhausted).
+  Future<List<DramaModel>> getTabDramas({
+    String? providerKey,
+    String tabKey = 'for-you',
+    int page = 1,
+  }) async {
+    final response = await dio.get<String>(
+      '/home/providers/sections',
+      queryParameters: {
+        if (providerKey != null && providerKey.isNotEmpty)
+          'provider': providerKey,
+        'lang': _langFor(providerKey),
+        'target_lang': _langFor(providerKey),
+        'only_tab': tabKey,
+        'tab_pages[$tabKey]': page,
+      },
+      options: Options(responseType: ResponseType.plain),
+    );
+    final body = response.data ?? '';
+    if (body.isEmpty) return const <DramaModel>[];
+    final data = await compute(_parseHomeJson, body);
+    if (data.sections.isEmpty) return const <DramaModel>[];
+    return data.sections.first.dramas;
+  }
+
   /// Returns raw sections retaining tab key/label for a provider.
   Future<List<NartoSection>> getSectionsWithKeys({String? providerKey}) async {
     final data = await getHomeData(providerKey: providerKey);
@@ -406,7 +434,7 @@ NartoHomeData _parseHomeJson(String jsonString) {
         DramaSectionModel(
           name: tabKey == 'for-you' ? 'For You' : tabLabel,
           dramas: dramas,
-          hasMore: false,
+          hasMore: tabKey == 'for-you',
         ),
       );
     }

@@ -23,6 +23,7 @@ abstract class DramaRepository {
   });
   Future<List<DramaModel>> getForYouDramas({
     AppContentProvider provider = AppContentProvider.narto,
+    String? nartoProviderKey,
     int page = 1,
   });
   Future<List<DramaModel>> getLatestDramas({
