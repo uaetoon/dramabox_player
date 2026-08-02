@@ -327,13 +327,17 @@ class NartoRemoteDataSource {
 DramaModel _dramaFromJson(Map<String, dynamic> json) {
   final tags = json['tag_names'] ?? json['tags'];
   final category = json['category_name']?.toString() ?? '';
+  var cover = json['poster_url']?.toString() ?? json['poster']?.toString() ?? '';
+  if (cover.startsWith('/')) {
+    cover = 'https://narto-drama.com$cover';
+  }
   return DramaModel(
     bookId: json['watch_url']?.toString() ??
         json['url']?.toString() ??
         json['id']?.toString() ??
         '',
     bookName: json['title']?.toString() ?? json['name']?.toString() ?? '',
-    coverWap: json['poster_url']?.toString() ?? json['poster']?.toString() ?? '',
+    coverWap: cover,
     introduction: json['description']?.toString() ?? '',
     tags: tags is List
         ? List<String>.from(tags)
