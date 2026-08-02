@@ -144,6 +144,7 @@ class HistoryPage extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                     builder: (_) => DramafrenWebViewPage(
+                      siteKey: item.nartoProviderKey,
                       baseUrl: site,
                       initialPath: dramafrenDetailPath(
                         item.nartoProviderKey,

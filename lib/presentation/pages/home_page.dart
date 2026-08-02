@@ -52,6 +52,7 @@ void _openDetail(
         context,
         MaterialPageRoute(
           builder: (_) => DramafrenWebViewPage(
+            siteKey: activeKey,
             baseUrl: site,
             initialPath: dramafrenDetailPath(
               activeKey,
@@ -340,7 +341,10 @@ class _HomeTabContent extends StatelessWidget {
               } else if (state is HomeLoaded) {
                 final embeddedSite = dramafrenSites[state.activeNartoProvider];
                 if (embeddedSite != null) {
-                  return DramafrenWebViewPage(baseUrl: embeddedSite);
+                  return DramafrenWebViewPage(
+                    siteKey: state.activeNartoProvider,
+                    baseUrl: embeddedSite,
+                  );
                 }
                 final sections = state.sectionsFor(state.activeNartoProvider);
                 if (sections.isEmpty) {
