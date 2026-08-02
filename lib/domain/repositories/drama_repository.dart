@@ -25,6 +25,7 @@ abstract class DramaRepository {
     AppContentProvider provider = AppContentProvider.narto,
     String? nartoProviderKey,
     int page = 1,
+    String tabKey = 'for-you',
   });
   Future<List<DramaModel>> getLatestDramas({
     AppContentProvider provider = AppContentProvider.narto,

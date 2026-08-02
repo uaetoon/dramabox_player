@@ -63,7 +63,6 @@ class _QuickPlayHomePageState extends State<QuickPlayHomePage> {
         final sections = state.sectionsFor(state.activeNartoProvider);
         if (_selectedSectionIndex >= sections.length) return;
         final section = sections[_selectedSectionIndex];
-        if (section.name != 'For You') return;
         if (section.hasMore) {
           setState(() => _isPaginationInProgress = true);
           context.read<HomeBloc>().add(

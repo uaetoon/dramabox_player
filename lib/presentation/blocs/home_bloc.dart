@@ -229,6 +229,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
         sectionsMap[key] = sections;
 
+        // A fresh fetch restarts pagination for this provider, so clear any
+        // in-flight markers and empty-page streaks left over from the previous
+        // browsing session.
+        final staleKeys =
+            _loadMoreInFlight.where((k) => k.startsWith('$key:')).toList();
+        _loadMoreInFlight.removeAll(staleKeys);
+        _emptyPageStreaks.removeWhere((k, _) => k.startsWith('$key:'));
+
         if (state is HomeLoaded) {
           emit(
             (state as HomeLoaded).copyWith(
@@ -261,8 +269,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       if (event.sectionIndex >= sections.length) return;
 
       final section = sections[event.sectionIndex];
-      if (section.name != 'For You') return;
       if (!section.hasMore) return;
+      final tabKey = section.tabKey.isEmpty ? 'for-you' : section.tabKey;
 
       // Prevent duplicate concurrent fetches for the same section: the scroll
       // callbacks can fire faster than the network round-trip, so a plain UI
@@ -278,6 +286,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           provider: event.provider,
           nartoProviderKey: key,
           page: nextPage,
+          tabKey: tabKey,
         );
 
         final existingIds = section.dramas.map((d) => d.bookId).toSet();
@@ -294,12 +303,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         } else {
           _emptyPageStreaks[loadKey] = 0;
         }
-
-        debugPrint(
-          'LoadMore: key=$key page=$nextPage got=${moreDramas.length} '
-          'fresh=${fresh.length} total=${section.dramas.length + fresh.length} '
-          'emptyStreak=${_emptyPageStreaks[loadKey]}',
-        );
 
         final exhausted =
             moreDramas.isEmpty || (_emptyPageStreaks[loadKey] ?? 0) >= 3;

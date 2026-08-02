@@ -177,6 +177,7 @@ class DramaRepositoryImpl implements DramaRepository {
     AppContentProvider provider = AppContentProvider.narto,
     String? nartoProviderKey,
     int page = 1,
+    String tabKey = 'for-you',
   }) async {
     try {
       if (_isEmbeddedSite(nartoProviderKey)) {
@@ -189,7 +190,7 @@ class DramaRepositoryImpl implements DramaRepository {
       }
       return await nartoDataSource.getTabDramas(
         providerKey: nartoProviderKey,
-        tabKey: 'for-you',
+        tabKey: tabKey,
         page: page,
       );
     } catch (e) {

@@ -434,7 +434,8 @@ NartoHomeData _parseHomeJson(String jsonString) {
         DramaSectionModel(
           name: tabKey == 'for-you' ? 'For You' : tabLabel,
           dramas: dramas,
-          hasMore: tabKey == 'for-you',
+          hasMore: tabKey == 'for-you' || tabKey == 'feed-stream',
+          tabKey: tabKey,
         ),
       );
     }
