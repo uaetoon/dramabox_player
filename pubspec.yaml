@@ -53,6 +53,7 @@ dependencies:
   bloc_concurrency: ^0.3.0
   package_info_plus: ^9.0.0
   image: ^4.3.0
+  webview_flutter: ^4.14.1
 
 dev_dependencies:
   flutter_test:

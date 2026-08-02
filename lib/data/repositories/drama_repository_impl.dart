@@ -250,7 +250,9 @@ class DramaRepositoryImpl implements DramaRepository {
     } else {
       remoteEpisodes = await nartoDataSource.getDramaEpisodes(bookId);
     }
-    await localDataSource.cacheEpisodes(cacheKey, remoteEpisodes);
+    if (remoteEpisodes.isNotEmpty) {
+      await localDataSource.cacheEpisodes(cacheKey, remoteEpisodes);
+    }
     return remoteEpisodes;
   }
 

@@ -17,6 +17,8 @@ import 'package:dramabox_free/presentation/blocs/search_bloc.dart';
 import 'package:dramabox_free/presentation/pages/drama_detail_page.dart';
 import 'package:dramabox_free/presentation/pages/history_page.dart';
 import 'package:dramabox_free/presentation/pages/player_page.dart';
+import 'package:dramabox_free/presentation/pages/shortwave_webview_page.dart';
+import 'package:dramabox_free/data/datasources/shortwave_remote_data_source.dart';
 import 'package:dramabox_free/presentation/cubits/navigation_cubit.dart';
 import 'package:dramabox_free/presentation/cubits/app_language_cubit.dart';
 import 'package:dramabox_free/presentation/cubits/app_theme_cubit.dart';
@@ -44,6 +46,18 @@ void _openDetail(
       (drama.nartoProviderKey.isNotEmpty
           ? drama.nartoProviderKey
           : (homeState is HomeLoaded ? homeState.activeNartoProvider : ''));
+  if (activeKey == ShortWaveRemoteDataSource.shortWaveProviderKey &&
+      drama.bookId.isNotEmpty) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ShortWaveWebViewPage(
+          initialPath: 'id=${drama.bookId}&slug=${_slugify(drama.bookName)}',
+        ),
+      ),
+    );
+    return;
+  }
   Navigator.push(
     context,
     MaterialPageRoute(
@@ -55,6 +69,13 @@ void _openDetail(
       ),
     ),
   );
+}
+
+String _slugify(String title) {
+  final slug = title
+      .toLowerCase()
+      .replaceAll(RegExp('[^a-z0-9]+'), '-');
+  return slug.replaceAll(RegExp(r'^-+|-+$'), '');
 }
 
 String _providerDisplayLabel(BuildContext context, NartoProvider provider) {
@@ -318,6 +339,10 @@ class _HomeTabContent extends StatelessWidget {
               if (state is HomeLoading) {
                 return const DramaShimmerGrid();
               } else if (state is HomeLoaded) {
+                if (state.activeNartoProvider ==
+                    ShortWaveRemoteDataSource.shortWaveProviderKey) {
+                  return const ShortWaveWebViewPage();
+                }
                 final sections = state.sectionsFor(state.activeNartoProvider);
                 if (sections.isEmpty) {
                   return const DramaShimmerGrid();
