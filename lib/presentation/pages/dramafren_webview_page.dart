@@ -1,25 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-/// Renders the ShortWave site itself. The dramafren SPA is Cloudflare-
-/// protected against plain HTTP clients but works fine in a real browser, so
-/// embedding the site in a visible WebView guarantees browsing, detail pages
-/// and playback on any device where the site opens.
-///
-/// [initialPath] lets us deep-link into the SPA detail view using the same
-/// `?id=<dramaId>&slug=<slug>` format the site itself uses.
-class ShortWaveWebViewPage extends StatefulWidget {
-  final String initialPath;
+/// The drama sites on the dramafren network are Cloudflare-protected against
+/// plain HTTP clients but work fine in a real browser, so the app embeds them
+/// in a visible WebView. Each site is a complete SPA (grid, search, detail,
+/// player), so browsing and playback work with zero API scraping.
+const Map<String, String> dramafrenSites = {
+  'shortwave': 'https://shortwave.dramafren.org',
+  'dramafren_dramabox': 'https://dramabox.dramafren.org',
+};
 
-  const ShortWaveWebViewPage({super.key, this.initialPath = ''});
+bool isDramafrenEmbeddedProvider(String key) =>
+    dramafrenSites.containsKey(key);
 
-  static const String baseUrl = 'https://shortwave.dramafren.org';
-
-  @override
-  State<ShortWaveWebViewPage> createState() => _ShortWaveWebViewPageState();
+/// Builds the detail deep-link path for a site.
+/// shortwave uses `?id=..&slug=..`; dramabox uses `index.php?page=detail&id=..&slug=..`.
+String dramafrenDetailPath(String siteKey, String bookId, String title) {
+  final slug = title.toLowerCase().replaceAll(RegExp('[^a-z0-9]+'), '-');
+  final cleanSlug = slug.replaceAll(RegExp(r'^-+|-+$'), '');
+  if (siteKey == 'dramafren_dramabox') {
+    return 'index.php?page=detail&id=$bookId&slug=$cleanSlug';
+  }
+  return 'id=$bookId&slug=$cleanSlug';
 }
 
-class _ShortWaveWebViewPageState extends State<ShortWaveWebViewPage> {
+/// Renders a dramafren site inside the app.
+///
+/// [initialPath] is appended to [baseUrl] (e.g. a deep link into the SPA's
+/// detail view); when empty the site's home is shown.
+class DramafrenWebViewPage extends StatefulWidget {
+  final String baseUrl;
+  final String initialPath;
+
+  const DramafrenWebViewPage({
+    super.key,
+    required this.baseUrl,
+    this.initialPath = '',
+  });
+
+  @override
+  State<DramafrenWebViewPage> createState() => _DramafrenWebViewPageState();
+}
+
+class _DramafrenWebViewPageState extends State<DramafrenWebViewPage> {
   late final WebViewController _controller;
   bool _loading = true;
   bool _error = false;
@@ -58,8 +81,8 @@ class _ShortWaveWebViewPageState extends State<ShortWaveWebViewPage> {
 
   void _load() {
     final url = widget.initialPath.isEmpty
-        ? ShortWaveWebViewPage.baseUrl
-        : '${ShortWaveWebViewPage.baseUrl}?${widget.initialPath}';
+        ? widget.baseUrl
+        : '${widget.baseUrl}/${widget.initialPath}';
     _controller.loadRequest(Uri.parse(url));
   }
 
@@ -75,7 +98,7 @@ class _ShortWaveWebViewPageState extends State<ShortWaveWebViewPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Failed to load ShortWave. Check your connection.'),
+                const Text('Failed to load. Check your connection.'),
                 const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: () {

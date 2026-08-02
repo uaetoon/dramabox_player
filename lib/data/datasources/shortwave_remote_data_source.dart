@@ -14,6 +14,10 @@ class ShortWaveRemoteDataSource {
   /// Provider key used across the app for this platform.
   static const String shortWaveProviderKey = 'shortwave';
 
+  /// Provider key for the dramafren mirror of the DramaBox catalog
+  /// (dramabox.dramafren.org), embedded as a WebView like ShortWave.
+  static const String dramafrenDramaboxProviderKey = 'dramafren_dramabox';
+
   Future<List<DramaSectionModel>> getHomeSections() async => const [];
 
   Future<List<DramaModel>> searchDramas(String query) async => const [];

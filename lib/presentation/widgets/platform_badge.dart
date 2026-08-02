@@ -46,6 +46,7 @@ class PlatformBadge extends StatelessWidget {
     'stardusttv': 'StardustTV',
     'starshort': 'StarShort',
     'shortwave': 'ShortWave',
+    'dramafren_dramabox': 'DramaFren Box',
     'velolo': 'VeLoLo',
     'vigloo': 'Vigloo',
     'vyntage': 'Vyntage',

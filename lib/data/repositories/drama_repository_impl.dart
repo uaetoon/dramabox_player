@@ -28,12 +28,21 @@ class DramaRepositoryImpl implements DramaRepository {
     label: 'ShortWave',
   );
 
-  bool _isShortWave(String? nartoProviderKey) =>
-      nartoProviderKey == ShortWaveRemoteDataSource.shortWaveProviderKey;
+  static const NartoProvider _dramafrenDramaboxProvider = NartoProvider(
+    key: ShortWaveRemoteDataSource.dramafrenDramaboxProviderKey,
+    label: 'DramaFren Box',
+  );
 
-  List<NartoProvider> _withShortWave(List<NartoProvider> providers) {
-    if (providers.any((p) => p.key == _shortwaveProvider.key)) return providers;
-    return [...providers, _shortwaveProvider];
+  bool _isEmbeddedSite(String? nartoProviderKey) =>
+      nartoProviderKey == ShortWaveRemoteDataSource.shortWaveProviderKey ||
+      nartoProviderKey == ShortWaveRemoteDataSource.dramafrenDramaboxProviderKey;
+
+  List<NartoProvider> _withEmbeddedSites(List<NartoProvider> providers) {
+    final result = [...providers];
+    for (final p in [_shortwaveProvider, _dramafrenDramaboxProvider]) {
+      if (!result.any((e) => e.key == p.key)) result.add(p);
+    }
+    return result;
   }
 
   String _getCacheKey(
@@ -51,7 +60,7 @@ class DramaRepositoryImpl implements DramaRepository {
     AppContentProvider provider, {
     String? nartoProviderKey,
   }) {
-    if (_isShortWave(nartoProviderKey)) {
+    if (_isEmbeddedSite(nartoProviderKey)) {
       return shortwaveDataSource.getHomeSections();
     }
     return nartoDataSource.getHomeSections(providerKey: nartoProviderKey);
@@ -70,7 +79,7 @@ class DramaRepositoryImpl implements DramaRepository {
       await localDataSource.cacheSections(cacheKey, data.sections);
     }
     return NartoHomeData(
-      providers: _withShortWave(data.providers),
+      providers: _withEmbeddedSites(data.providers),
       activeProvider: data.activeProvider,
       sections: data.sections,
       sectionsWithKeys: data.sectionsWithKeys,
@@ -81,7 +90,7 @@ class DramaRepositoryImpl implements DramaRepository {
   Future<NartoProviderCatalog> getNartoProviders() async {
     final catalog = await nartoDataSource.getProviderCatalog();
     return NartoProviderCatalog(
-      providers: _withShortWave(catalog.providers),
+      providers: _withEmbeddedSites(catalog.providers),
       activeProvider: catalog.activeProvider,
     );
   }
@@ -223,7 +232,7 @@ class DramaRepositoryImpl implements DramaRepository {
     AppContentProvider provider = AppContentProvider.narto,
     String? nartoProviderKey,
   }) {
-    if (_isShortWave(nartoProviderKey)) {
+    if (_isEmbeddedSite(nartoProviderKey)) {
       return shortwaveDataSource.searchDramas(query);
     }
     return nartoDataSource.searchDramas(
@@ -245,7 +254,7 @@ class DramaRepositoryImpl implements DramaRepository {
     }
 
     final List<EpisodeModel> remoteEpisodes;
-    if (_isShortWave(nartoProviderKey)) {
+    if (_isEmbeddedSite(nartoProviderKey)) {
       remoteEpisodes = await shortwaveDataSource.getDramaEpisodes(bookId);
     } else {
       remoteEpisodes = await nartoDataSource.getDramaEpisodes(bookId);

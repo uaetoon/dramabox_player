@@ -1,17 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dramabox_free/core/localization/app_localizations.dart';
-import 'package:dramabox_free/data/datasources/shortwave_remote_data_source.dart';
-import 'package:dramabox_free/presentation/pages/shortwave_webview_page.dart';
+import 'package:dramabox_free/presentation/pages/dramafren_webview_page.dart';
 import 'package:dramabox_free/presentation/widgets/drama_card.dart';
 import '../../data/models/history_model.dart';
 import '../blocs/history_bloc.dart';
 import '../pages/drama_detail_page.dart';
-
-String _slugify(String title) {
-  final slug = title.toLowerCase().replaceAll(RegExp('[^a-z0-9]+'), '-');
-  return slug.replaceAll(RegExp(r'^-+|-+$'), '');
-}
 
 class HistoryPage extends StatelessWidget {
   const HistoryPage({super.key});
@@ -142,18 +136,25 @@ class HistoryPage extends StatelessWidget {
           hideHotCode: true,
           showChapterCount: true,
           onTap: () {
-            if (item.nartoProviderKey ==
-                ShortWaveRemoteDataSource.shortWaveProviderKey) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ShortWaveWebViewPage(
-                    initialPath:
-                        'id=${drama.bookId}&slug=${_slugify(drama.bookName)}',
+            if (isDramafrenEmbeddedProvider(item.nartoProviderKey) &&
+                drama.bookId.isNotEmpty) {
+              final site = dramafrenSites[item.nartoProviderKey];
+              if (site != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DramafrenWebViewPage(
+                      baseUrl: site,
+                      initialPath: dramafrenDetailPath(
+                        item.nartoProviderKey,
+                        drama.bookId,
+                        drama.bookName,
+                      ),
+                    ),
                   ),
-                ),
-              );
-              return;
+                );
+                return;
+              }
             }
             Navigator.push(
               context,
