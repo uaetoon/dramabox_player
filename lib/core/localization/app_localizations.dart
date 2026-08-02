@@ -72,6 +72,14 @@ class AppStrings {
   static String deleteDownload(BuildContext context) => AppLocalizations.of(context).deleteDownload;
   static String deleteDownloadConfirm(BuildContext context) => AppLocalizations.of(context).deleteDownloadConfirm;
   static String downloadAllTooltip(BuildContext context) => AppLocalizations.of(context).downloadAllTooltip;
+  static String downloadEpisodeConfirm(BuildContext context) => AppLocalizations.of(context).downloadEpisodeConfirm;
+  static String downloadAllConfirm(BuildContext context, int count) => AppLocalizations.of(context).downloadAllConfirm(count);
+  static String estimatedSizeLabel(BuildContext context, String size) => AppLocalizations.of(context).estimatedSizeLabel(size);
+  static String downloadAllEstimatedSize(BuildContext context, String size) => AppLocalizations.of(context).downloadAllEstimatedSize(size);
+  static String estimatingSize(BuildContext context) => AppLocalizations.of(context).estimatingSize;
+  static String sizeUnknown(BuildContext context) => AppLocalizations.of(context).sizeUnknown;
+  static String largeDownload(BuildContext context) => AppLocalizations.of(context).largeDownload;
+  static String largeDownloadWarning(BuildContext context) => AppLocalizations.of(context).largeDownloadWarning;
   static String downloadsQueued(BuildContext context, int count) => AppLocalizations.of(context).downloadsQueued(count);
   static String comingSoon(BuildContext context) => AppLocalizations.of(context).comingSoon;
   static String episodeNotAvailable(BuildContext context) => AppLocalizations.of(context).episodeNotAvailable;

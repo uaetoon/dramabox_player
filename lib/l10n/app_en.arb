@@ -105,6 +105,35 @@
   "deleteDownload": "Delete download",
   "deleteDownloadConfirm": "Delete this download?",
   "downloadAllTooltip": "Download all episodes",
+  "downloadEpisodeConfirm": "Download this episode?",
+  "downloadAllConfirm": "Download all {count} episodes?",
+  "@downloadAllConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "estimatedSizeLabel": "Estimated size: {size}",
+  "@estimatedSizeLabel": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadAllEstimatedSize": "Estimated total: {size}",
+  "@downloadAllEstimatedSize": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "estimatingSize": "Estimating size...",
+  "sizeUnknown": "Size not available",
+  "largeDownload": "Large download",
+  "largeDownloadWarning": "This is a large download and may use significant storage and mobile data.",
   "downloadsQueued": "{count} episodes queued for download",
   "@downloadsQueued": {
     "placeholders": {

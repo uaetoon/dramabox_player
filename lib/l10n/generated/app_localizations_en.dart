@@ -235,6 +235,37 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadAllTooltip => 'Download all episodes';
 
   @override
+  String get downloadEpisodeConfirm => 'Download this episode?';
+
+  @override
+  String downloadAllConfirm(int count) {
+    return 'Download all $count episodes?';
+  }
+
+  @override
+  String estimatedSizeLabel(String size) {
+    return 'Estimated size: $size';
+  }
+
+  @override
+  String downloadAllEstimatedSize(String size) {
+    return 'Estimated total: $size';
+  }
+
+  @override
+  String get estimatingSize => 'Estimating size...';
+
+  @override
+  String get sizeUnknown => 'Size not available';
+
+  @override
+  String get largeDownload => 'Large download';
+
+  @override
+  String get largeDownloadWarning =>
+      'This is a large download and may use significant storage and mobile data.';
+
+  @override
   String downloadsQueued(int count) {
     return '$count episodes queued for download';
   }

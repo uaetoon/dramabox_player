@@ -105,6 +105,35 @@
   "deleteDownload": "حذف التنزيل",
   "deleteDownloadConfirm": "حذف هذا التنزيل؟",
   "downloadAllTooltip": "تنزيل جميع الحلقات",
+  "downloadEpisodeConfirm": "تنزيل هذه الحلقة؟",
+  "downloadAllConfirm": "تنزيل جميع الحلقات ({count})؟",
+  "@downloadAllConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "estimatedSizeLabel": "الحجم التقريبي: {size}",
+  "@estimatedSizeLabel": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadAllEstimatedSize": "الإجمالي التقريبي: {size}",
+  "@downloadAllEstimatedSize": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "estimatingSize": "جارٍ تقدير الحجم...",
+  "sizeUnknown": "الحجم غير متاح",
+  "largeDownload": "تنزيل كبير",
+  "largeDownloadWarning": "هذا تنزيل كبير وقد يستهلك مساحة تخزين وبيانات كبيرة.",
   "downloadsQueued": "تمت إضافة {count} حلقة إلى قائمة الانتظار",
   "@downloadsQueued": {
     "placeholders": {

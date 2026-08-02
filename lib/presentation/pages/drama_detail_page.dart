@@ -6,6 +6,7 @@ import 'package:dramabox_free/core/constants/app_enums.dart';
 import 'package:dramabox_free/core/localization/app_localizations.dart';
 import 'package:dramabox_free/core/di/injection_container.dart';
 import 'package:dramabox_free/core/services/cover_match_service.dart';
+import 'package:dramabox_free/core/services/download_service.dart';
 import 'package:dramabox_free/data/models/drama_model.dart';
 import 'package:dramabox_free/data/models/download_item.dart';
 import 'package:dramabox_free/data/models/episode_model.dart';
@@ -231,22 +232,130 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
       _confirmDeleteDownload(id);
       return;
     }
-    context.read<DownloadsBloc>().add(
-      StartDownloadEvent(
-        DownloadItem(
-          id: id,
-          drama: widget.drama,
-          episode: episode,
-          provider: widget.provider,
-          nartoProviderKey: widget.nartoProviderKey,
-          status: DownloadStatus.queued,
-          episodeNumber: index + 1,
-          totalBytes: 0,
-          downloadedBytes: 0,
-          createdAt: DateTime.now(),
-        ),
+    _confirmAndStartDownload(
+      DownloadItem(
+        id: id,
+        drama: widget.drama,
+        episode: episode,
+        provider: widget.provider,
+        nartoProviderKey: widget.nartoProviderKey,
+        status: DownloadStatus.queued,
+        episodeNumber: index + 1,
+        totalBytes: 0,
+        downloadedBytes: 0,
+        createdAt: DateTime.now(),
       ),
     );
+  }
+
+  /// Threshold (bytes) above which a single episode download is flagged as
+  /// "large" in the confirmation dialog.
+  static const int _largeDownloadThreshold = 80 * 1024 * 1024;
+
+  /// Shows a confirmation dialog that reports the estimated download size
+  /// (computed asynchronously) and warns when the episode is very large.
+  /// Returns true when the user confirms.
+  Future<bool?> _showDownloadConfirmDialog({
+    required Future<int?> sizeFuture,
+    required String Function(BuildContext) title,
+    required String Function(BuildContext, int?) sizeText,
+    bool Function(int? size)? isLarge,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          icon: FutureBuilder<int?>(
+            future: sizeFuture,
+            builder: (context, snapshot) {
+              final large = isLarge?.call(snapshot.data) ?? false;
+              return Icon(
+                large ? Icons.warning_amber_rounded : Icons.download_for_offline_outlined,
+                color: large ? Colors.amber : null,
+                size: 36,
+              );
+            },
+          ),
+          title: FutureBuilder<int?>(
+            future: sizeFuture,
+            builder: (context, snapshot) {
+              final large = isLarge?.call(snapshot.data) ?? false;
+              return Text(large ? AppStrings.largeDownload(context) : title(context));
+            },
+          ),
+          content: FutureBuilder<int?>(
+            future: sizeFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return Row(
+                  children: [
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(AppStrings.estimatingSize(context)),
+                    ),
+                  ],
+                );
+              }
+              final size = snapshot.hasError ? null : snapshot.data;
+              final large = isLarge?.call(size) ?? false;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(sizeText(context, size)),
+                  if (large) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      AppStrings.largeDownloadWarning(context),
+                      style: TextStyle(color: Colors.amber.shade700, fontSize: 12),
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(AppStrings.cancel(dialogContext)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(AppStrings.download(dialogContext)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  static String _formatSize(int bytes) {
+    final mb = bytes / (1024 * 1024);
+    if (mb >= 1024) return '${(mb / 1024).toStringAsFixed(1)} GB';
+    return '${mb.toStringAsFixed(0)} MB';
+  }
+
+  Future<void> _confirmAndStartDownload(DownloadItem item) async {
+    final service = sl<DownloadService>();
+    final sizeFuture = service.estimateSize(item.episode.videoUrl);
+    final confirmed = await _showDownloadConfirmDialog(
+      sizeFuture: sizeFuture,
+      title: (c) => AppStrings.downloadEpisodeConfirm(c),
+      sizeText: (c, size) => size != null
+          ? AppStrings.estimatedSizeLabel(c, _formatSize(size))
+          : AppStrings.sizeUnknown(c),
+      isLarge: (size) => size != null && size > _largeDownloadThreshold,
+    );
+    if (confirmed == true && mounted) {
+      context.read<DownloadsBloc>().add(
+        StartDownloadEvent(item.copyWith(status: DownloadStatus.queued)),
+      );
+    }
   }
 
   Future<void> _confirmDeleteDownload(String id) async {
@@ -271,7 +380,33 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
     }
   }
 
-  void _downloadAll(List<EpisodeModel> episodes) {
+  Future<int?> _estimateAllSize(List<EpisodeModel> playable) async {
+    final service = sl<DownloadService>();
+    final sample = playable.take(3).toList();
+    final sizes = await Future.wait(
+      sample.map((e) => service.estimateSize(e.videoUrl)),
+    );
+    final known = sizes.whereType<int>().toList();
+    if (known.isEmpty) return null;
+    final avg = known.reduce((a, b) => a + b) ~/ known.length;
+    return avg * playable.length;
+  }
+
+  Future<void> _downloadAll(List<EpisodeModel> episodes) async {
+    final playable = episodes.where((e) => e.isPlayable).toList();
+    if (playable.isEmpty || !mounted) return;
+
+    final confirmed = await _showDownloadConfirmDialog(
+      sizeFuture: _estimateAllSize(playable),
+      title: (c) => AppStrings.downloadAllConfirm(c, playable.length),
+      sizeText: (c, size) => size != null
+          ? AppStrings.downloadAllEstimatedSize(c, _formatSize(size))
+          : AppStrings.sizeUnknown(c),
+      isLarge: (size) =>
+          size != null && size > _largeDownloadThreshold * 3,
+    );
+    if (confirmed != true || !mounted) return;
+
     final bloc = context.read<DownloadsBloc>();
     var enqueued = 0;
     for (var i = 0; i < episodes.length; i++) {

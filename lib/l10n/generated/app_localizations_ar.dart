@@ -232,6 +232,37 @@ class AppLocalizationsAr extends AppLocalizations {
   String get downloadAllTooltip => 'تنزيل جميع الحلقات';
 
   @override
+  String get downloadEpisodeConfirm => 'تنزيل هذه الحلقة؟';
+
+  @override
+  String downloadAllConfirm(int count) {
+    return 'تنزيل جميع الحلقات ($count)؟';
+  }
+
+  @override
+  String estimatedSizeLabel(String size) {
+    return 'الحجم التقريبي: $size';
+  }
+
+  @override
+  String downloadAllEstimatedSize(String size) {
+    return 'الإجمالي التقريبي: $size';
+  }
+
+  @override
+  String get estimatingSize => 'جارٍ تقدير الحجم...';
+
+  @override
+  String get sizeUnknown => 'الحجم غير متاح';
+
+  @override
+  String get largeDownload => 'تنزيل كبير';
+
+  @override
+  String get largeDownloadWarning =>
+      'هذا تنزيل كبير وقد يستهلك مساحة تخزين وبيانات كبيرة.';
+
+  @override
   String downloadsQueued(int count) {
     return 'تمت إضافة $count حلقة إلى قائمة الانتظار';
   }

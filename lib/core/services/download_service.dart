@@ -85,6 +85,79 @@ class DownloadService {
     return item;
   }
 
+  /// Best-effort estimate of the total download size in bytes for [videoUrl],
+  /// or null when the source doesn't expose a size. Uses a couple of cheap
+  /// HEAD/range requests (MP4: one; HLS: playlist + one segment) so the UI can
+  /// show a size before the user commits to a download.
+  Future<int?> estimateSize(String videoUrl) async {
+    try {
+      if (_isHls(videoUrl)) return _estimateHlsSize(videoUrl);
+      return _headSize(videoUrl, _mediaHeaders());
+    } catch (e) {
+      debugPrint('DownloadService: size estimate failed: $e');
+      return null;
+    }
+  }
+
+  Future<int?> _estimateHlsSize(String url) async {
+    final headers = _mediaHeaders();
+    final cancelToken = CancelToken();
+    final masterText = await _fetchText(url, cancelToken, headers);
+    if (masterText.trim().isEmpty) return null;
+
+    final masterBase = Uri.parse(url);
+    final mediaUrl = _resolveMediaPlaylist(masterBase, masterText);
+    final mediaText = mediaUrl == null
+        ? masterText
+        : await _fetchText(mediaUrl, cancelToken, headers);
+    final baseUri = Uri.parse(mediaUrl ?? url);
+
+    final segmentUris = <String>[
+      for (final l in mediaText.split('\n'))
+        if (l.trim().isNotEmpty && !l.trim().startsWith('#')) l.trim(),
+    ];
+    if (segmentUris.isEmpty) return null;
+
+    // Sample a few segments to average out size variation.
+    final sampleCount = segmentUris.length < 4 ? segmentUris.length : 4;
+    var totalBytes = 0;
+    var sampled = 0;
+    for (var i = 0; i < sampleCount; i++) {
+      final index = (segmentUris.length * i / sampleCount).floor();
+      final segUrl = baseUri.resolveUri(Uri.parse(segmentUris[index])).toString();
+      final size = await _headSize(segUrl, headers);
+      if (size != null) {
+        totalBytes += size;
+        sampled++;
+      }
+    }
+    if (sampled == 0) return null;
+    final avg = (totalBytes / sampled).round();
+    return avg * segmentUris.length;
+  }
+
+  /// Returns the total resource size from a range request (or HEAD), or null.
+  Future<int?> _headSize(String url, Map<String, String> headers) async {
+    final response = await _dio.get<ResponseBody>(
+      url,
+      options: Options(
+        responseType: ResponseType.stream,
+        headers: {HttpHeaders.rangeHeader: 'bytes=0-0'},
+        validateStatus: (status) =>
+            status == HttpStatus.ok ||
+            status == HttpStatus.partialContent ||
+            status == HttpStatus.requestedRangeNotSatisfiable,
+      ),
+    );
+    final total = _totalFromHeaders(response.headers);
+    if (total != null && total > 0) return total;
+    // Some CDNs reply 200 and ignore Range; read the plain Content-Length.
+    final length = response.headers.value(HttpHeaders.contentLengthHeader);
+    final parsed = length != null ? int.tryParse(length) : null;
+    if (parsed != null && parsed > 0) return parsed;
+    return null;
+  }
+
   /// Starts (or resumes) the download for [item].
   ///
   /// Progress is reported through [onProgress] (throttled). When the

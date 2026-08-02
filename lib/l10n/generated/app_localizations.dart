@@ -518,6 +518,54 @@ abstract class AppLocalizations {
   /// **'Download all episodes'**
   String get downloadAllTooltip;
 
+  /// No description provided for @downloadEpisodeConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Download this episode?'**
+  String get downloadEpisodeConfirm;
+
+  /// No description provided for @downloadAllConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Download all {count} episodes?'**
+  String downloadAllConfirm(int count);
+
+  /// No description provided for @estimatedSizeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimated size: {size}'**
+  String estimatedSizeLabel(String size);
+
+  /// No description provided for @downloadAllEstimatedSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimated total: {size}'**
+  String downloadAllEstimatedSize(String size);
+
+  /// No description provided for @estimatingSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimating size...'**
+  String get estimatingSize;
+
+  /// No description provided for @sizeUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Size not available'**
+  String get sizeUnknown;
+
+  /// No description provided for @largeDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Large download'**
+  String get largeDownload;
+
+  /// No description provided for @largeDownloadWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'This is a large download and may use significant storage and mobile data.'**
+  String get largeDownloadWarning;
+
   /// No description provided for @downloadsQueued.
   ///
   /// In en, this message translates to:
