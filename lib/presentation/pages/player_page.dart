@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dramabox_free/data/models/drama_model.dart';
 import 'package:dramabox_free/data/models/episode_model.dart';
 import 'package:dramabox_free/presentation/blocs/player_bloc.dart';
+import 'package:dramabox_free/presentation/cubits/playback_settings_cubit.dart';
 import 'package:dramabox_free/presentation/widgets/video_player_item.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -160,7 +161,8 @@ class _PlayerPageState extends State<PlayerPage> {
                   },
                   onBack: () => Navigator.pop(context),
                   onFinished: () {
-                    if (index < state.episodes.length - 1) {
+                    if (index < state.episodes.length - 1 &&
+                        context.read<PlaybackSettingsCubit>().state.autoPlayNext) {
                       _pageController?.animateTo(
                         (index + 1) * MediaQuery.of(context).size.height,
                         duration: const Duration(milliseconds: 300),

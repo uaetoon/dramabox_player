@@ -301,4 +301,39 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get confirm => 'تأكيد';
+
+  @override
+  String get uiStyle => 'نمط الواجهة';
+
+  @override
+  String get uiClassic => 'كلاسيكي';
+
+  @override
+  String get uiQuickplay => 'كوييك بلاي';
+
+  @override
+  String get playback => 'التشغيل';
+
+  @override
+  String get autoPlayNext => 'تشغيل الحلقة التالية تلقائياً';
+
+  @override
+  String get autoPlayNextHint =>
+      'الانتقال تلقائياً إلى الحلقة التالية عند انتهاء الحالية.';
+
+  @override
+  String get defaultSpeed => 'السرعة الافتراضية';
+
+  @override
+  String get searchAllProviders => 'ابحث في جميع المنصات';
+
+  @override
+  String searchingProviders(int completed, int total) {
+    return 'جاري البحث في $completed/$total منصات...';
+  }
+
+  @override
+  String searchComplete(int count) {
+    return 'تم العثور على $count نتائج';
+  }
 }

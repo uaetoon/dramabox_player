@@ -152,5 +152,32 @@
   "lockAdultContent": "Lock adult content",
   "unlocked": "Unlocked",
   "locked": "Locked",
-  "confirm": "Confirm"
+  "confirm": "Confirm",
+  "uiStyle": "UI Style",
+  "uiClassic": "Classic",
+  "uiQuickplay": "QuickPlay",
+  "playback": "Playback",
+  "autoPlayNext": "Auto-play next episode",
+  "autoPlayNextHint": "Automatically advance to the next episode when one finishes.",
+  "defaultSpeed": "Default speed",
+  "searchAllProviders": "Search across all providers",
+  "searchingProviders": "Searching {completed}/{total} providers...",
+  "@searchingProviders": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "searchComplete": "{count} results found",
+  "@searchComplete": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

@@ -304,4 +304,39 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get confirm => 'Confirm';
+
+  @override
+  String get uiStyle => 'UI Style';
+
+  @override
+  String get uiClassic => 'Classic';
+
+  @override
+  String get uiQuickplay => 'QuickPlay';
+
+  @override
+  String get playback => 'Playback';
+
+  @override
+  String get autoPlayNext => 'Auto-play next episode';
+
+  @override
+  String get autoPlayNextHint =>
+      'Automatically advance to the next episode when one finishes.';
+
+  @override
+  String get defaultSpeed => 'Default speed';
+
+  @override
+  String get searchAllProviders => 'Search across all providers';
+
+  @override
+  String searchingProviders(int completed, int total) {
+    return 'Searching $completed/$total providers...';
+  }
+
+  @override
+  String searchComplete(int count) {
+    return '$count results found';
+  }
 }

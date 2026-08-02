@@ -16,6 +16,7 @@ import 'package:dramabox_free/core/services/video_proxy_service.dart';
 import 'package:dramabox_free/core/services/download_service.dart';
 import 'package:dramabox_free/core/di/injection_container.dart' as di;
 import 'package:dramabox_free/presentation/cubits/video_control_cubit.dart';
+import 'package:dramabox_free/presentation/cubits/playback_settings_cubit.dart';
 import 'package:dramabox_free/core/constants/app_enums.dart';
 import 'video_gesture_overlay.dart';
 
@@ -247,6 +248,13 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
 
         if (widget.isVisible) {
           _player?.controller.play();
+          final defaultSpeed = context
+              .read<PlaybackSettingsCubit>()
+              .state
+              .defaultSpeed;
+          if (defaultSpeed != 1.0) {
+            _player?.controller.setPlaybackSpeed(defaultSpeed);
+          }
         }
       }
     } catch (e) {

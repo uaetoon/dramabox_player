@@ -637,6 +637,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Confirm'**
   String get confirm;
+
+  /// No description provided for @uiStyle.
+  ///
+  /// In en, this message translates to:
+  /// **'UI Style'**
+  String get uiStyle;
+
+  /// No description provided for @uiClassic.
+  ///
+  /// In en, this message translates to:
+  /// **'Classic'**
+  String get uiClassic;
+
+  /// No description provided for @uiQuickplay.
+  ///
+  /// In en, this message translates to:
+  /// **'QuickPlay'**
+  String get uiQuickplay;
+
+  /// No description provided for @playback.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback'**
+  String get playback;
+
+  /// No description provided for @autoPlayNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-play next episode'**
+  String get autoPlayNext;
+
+  /// No description provided for @autoPlayNextHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically advance to the next episode when one finishes.'**
+  String get autoPlayNextHint;
+
+  /// No description provided for @defaultSpeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Default speed'**
+  String get defaultSpeed;
+
+  /// No description provided for @searchAllProviders.
+  ///
+  /// In en, this message translates to:
+  /// **'Search across all providers'**
+  String get searchAllProviders;
+
+  /// No description provided for @searchingProviders.
+  ///
+  /// In en, this message translates to:
+  /// **'Searching {completed}/{total} providers...'**
+  String searchingProviders(int completed, int total);
+
+  /// No description provided for @searchComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} results found'**
+  String searchComplete(int count);
 }
 
 class _AppLocalizationsDelegate

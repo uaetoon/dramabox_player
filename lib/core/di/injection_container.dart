@@ -16,11 +16,14 @@ import 'package:dramabox_free/presentation/blocs/history_bloc.dart';
 import 'package:dramabox_free/presentation/blocs/favorites_bloc.dart';
 import 'package:dramabox_free/presentation/blocs/downloads_bloc.dart';
 import 'package:dramabox_free/presentation/blocs/search_bloc.dart';
+import 'package:dramabox_free/presentation/blocs/progressive_search_bloc.dart';
 import 'package:dramabox_free/presentation/cubits/navigation_cubit.dart';
 import 'package:dramabox_free/presentation/cubits/app_language_cubit.dart';
 import 'package:dramabox_free/presentation/cubits/app_theme_cubit.dart';
 import 'package:dramabox_free/presentation/cubits/adult_lock_cubit.dart';
 import 'package:dramabox_free/presentation/cubits/similar_section_cubit.dart';
+import 'package:dramabox_free/presentation/cubits/ui_style_cubit.dart';
+import 'package:dramabox_free/presentation/cubits/playback_settings_cubit.dart';
 
 final sl = GetIt.instance;
 
@@ -53,11 +56,14 @@ Future<void> init() async {
     () => DownloadsBloc(service: sl(), dataSource: sl()),
   );
   sl.registerFactory(() => SearchBloc(repository: sl()));
+  sl.registerFactory(() => ProgressiveSearchBloc(repository: sl()));
   sl.registerLazySingleton(() => NavigationCubit());
   sl.registerLazySingleton(() => AppLanguageCubit());
   sl.registerLazySingleton(() => AppThemeCubit());
   sl.registerLazySingleton(() => AdultLockCubit());
   sl.registerLazySingleton(() => SimilarSectionCubit());
+  sl.registerLazySingleton(() => UiStyleCubit());
+  sl.registerLazySingleton(() => PlaybackSettingsCubit());
 
   // Data Sources
   sl.registerLazySingleton<NartoRemoteDataSource>(

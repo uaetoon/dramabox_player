@@ -92,4 +92,16 @@ class AppStrings {
   static String unlocked(BuildContext context) => AppLocalizations.of(context).unlocked;
   static String locked(BuildContext context) => AppLocalizations.of(context).locked;
   static String confirm(BuildContext context) => AppLocalizations.of(context).confirm;
+  static String uiStyle(BuildContext context) => AppLocalizations.of(context).uiStyle;
+  static String uiClassic(BuildContext context) => AppLocalizations.of(context).uiClassic;
+  static String uiQuickplay(BuildContext context) => AppLocalizations.of(context).uiQuickplay;
+  static String playback(BuildContext context) => AppLocalizations.of(context).playback;
+  static String autoPlayNext(BuildContext context) => AppLocalizations.of(context).autoPlayNext;
+  static String autoPlayNextHint(BuildContext context) => AppLocalizations.of(context).autoPlayNextHint;
+  static String defaultSpeed(BuildContext context) => AppLocalizations.of(context).defaultSpeed;
+  static String searchAllProviders(BuildContext context) => AppLocalizations.of(context).searchAllProviders;
+  static String searchingProviders(BuildContext context, int completed, int total) =>
+      AppLocalizations.of(context).searchingProviders(completed, total);
+  static String searchComplete(BuildContext context, int count) =>
+      AppLocalizations.of(context).searchComplete(count);
 }

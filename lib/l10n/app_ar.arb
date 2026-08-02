@@ -152,5 +152,32 @@
   "lockAdultContent": "قفل محتوى الكبار",
   "unlocked": "مفتوح",
   "locked": "مقفل",
-  "confirm": "تأكيد"
+  "confirm": "تأكيد",
+  "uiStyle": "نمط الواجهة",
+  "uiClassic": "كلاسيكي",
+  "uiQuickplay": "كوييك بلاي",
+  "playback": "التشغيل",
+  "autoPlayNext": "تشغيل الحلقة التالية تلقائياً",
+  "autoPlayNextHint": "الانتقال تلقائياً إلى الحلقة التالية عند انتهاء الحالية.",
+  "defaultSpeed": "السرعة الافتراضية",
+  "searchAllProviders": "ابحث في جميع المنصات",
+  "searchingProviders": "جاري البحث في {completed}/{total} منصات...",
+  "@searchingProviders": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "searchComplete": "تم العثور على {count} نتائج",
+  "@searchComplete": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

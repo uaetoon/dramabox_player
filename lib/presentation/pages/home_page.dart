@@ -24,6 +24,8 @@ import 'package:dramabox_free/presentation/cubits/app_theme_cubit.dart';
 import 'package:dramabox_free/presentation/cubits/provider_visibility_cubit.dart';
 import 'package:dramabox_free/presentation/cubits/adult_lock_cubit.dart';
 import 'package:dramabox_free/presentation/cubits/similar_section_cubit.dart';
+import 'package:dramabox_free/presentation/cubits/ui_style_cubit.dart';
+import 'package:dramabox_free/presentation/cubits/playback_settings_cubit.dart';
 import 'package:dramabox_free/presentation/widgets/drama_shimmer_grid.dart';
 import 'package:dramabox_free/presentation/widgets/drama_card.dart';
 import 'package:dramabox_free/presentation/widgets/platform_badge.dart';
@@ -208,7 +210,7 @@ class _HomePageState extends State<HomePage> {
       body: IndexedStack(
         index: _selectedTabIndex,
         children: [
-          _HomeTabContent(
+          HomeTabContent(
             scrollController: _scrollController,
             providerScrollController: _providerScrollController,
             selectedSectionIndex: _selectedSectionIndex,
@@ -222,9 +224,9 @@ class _HomePageState extends State<HomePage> {
             onProviderTap: _switchProvider,
           ),
           _SearchTab(key: _searchTabKey),
-          const _MyListTab(),
-          const _DownloadsTab(),
-          const _ProfileTab(),
+          const MyListTab(),
+          const DownloadsTab(),
+          const ProfileTab(),
         ],
       ),
       bottomNavigationBar: Column(
@@ -311,7 +313,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class _HomeTabContent extends StatelessWidget {
+class HomeTabContent extends StatelessWidget {
   final ScrollController scrollController;
   final ScrollController providerScrollController;
   final int selectedSectionIndex;
@@ -319,7 +321,8 @@ class _HomeTabContent extends StatelessWidget {
   final ValueChanged<int> onSectionSelected;
   final void Function(String key) onProviderTap;
 
-  const _HomeTabContent({
+  const HomeTabContent({
+    super.key,
     required this.scrollController,
     required this.providerScrollController,
     required this.selectedSectionIndex,
@@ -1015,7 +1018,7 @@ class _SearchTabState extends State<_SearchTab> {
                 return const DramaShimmerGrid();
               } else if (state is SearchLoaded) {
                 if (state.results.isEmpty) {
-                  return _EmptyState(
+                  return EmptyState(
                     icon: Icons.search_off_rounded,
                     message: AppStrings.noResultsFound(context),
                   );
@@ -1025,12 +1028,12 @@ class _SearchTabState extends State<_SearchTab> {
                   nartoProviderKey: state.nartoProviderKey,
                 );
               } else if (state is SearchError) {
-                return _EmptyState(
+                return EmptyState(
                   icon: Icons.error_outline_rounded,
                   message: state.message,
                 );
               }
-              return _EmptyState(
+              return EmptyState(
                 icon: Icons.search_rounded,
                 message: AppStrings.searchHint(context),
               );
@@ -1082,8 +1085,8 @@ class _SearchGrid extends StatelessWidget {
   }
 }
 
-class _MyListTab extends StatelessWidget {
-  const _MyListTab();
+class MyListTab extends StatelessWidget {
+  const MyListTab({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -1095,14 +1098,14 @@ class _MyListTab extends StatelessWidget {
           );
         } else if (state is FavoritesLoaded) {
           if (state.favorites.isEmpty) {
-            return _EmptyState(
+            return EmptyState(
               icon: Icons.favorite_border_rounded,
               message: AppStrings.emptyMyList(context),
             );
           }
-          return _FavoritesGrid(favorites: state.favorites);
+          return FavoritesGrid(favorites: state.favorites);
         } else if (state is FavoritesError) {
-          return _EmptyState(
+          return EmptyState(
             icon: Icons.error_outline_rounded,
             message: state.message,
           );
@@ -1113,10 +1116,10 @@ class _MyListTab extends StatelessWidget {
   }
 }
 
-class _FavoritesGrid extends StatelessWidget {
+class FavoritesGrid extends StatelessWidget {
   final List<FavoriteModel> favorites;
 
-  const _FavoritesGrid({required this.favorites});
+  const FavoritesGrid({super.key, required this.favorites});
 
   @override
   Widget build(BuildContext context) {
@@ -1154,8 +1157,8 @@ class _FavoritesGrid extends StatelessWidget {
   }
 }
 
-class _DownloadsTab extends StatelessWidget {
-  const _DownloadsTab();
+class DownloadsTab extends StatelessWidget {
+  const DownloadsTab({super.key});
 
   static String _formatBytes(int bytes) {
     if (bytes <= 0) return '';
@@ -1304,7 +1307,7 @@ class _DownloadsTab extends StatelessWidget {
           );
         } else if (state is DownloadsLoaded) {
           if (state.items.isEmpty) {
-            return _EmptyState(
+            return EmptyState(
               icon: Icons.download_outlined,
               message: AppStrings.emptyDownloads(context),
             );
@@ -1325,7 +1328,7 @@ class _DownloadsTab extends StatelessWidget {
             ],
           );
         } else if (state is DownloadsError) {
-          return _EmptyState(
+          return EmptyState(
             icon: Icons.error_outline_rounded,
             message: state.message,
           );
@@ -1590,8 +1593,8 @@ class _DownloadTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${_DownloadsTab._formatBytes(item.downloadedBytes)}'
-                  '${item.totalBytes > 0 ? ' / ${_DownloadsTab._formatBytes(item.totalBytes)}' : ''}',
+                  '${DownloadsTab._formatBytes(item.downloadedBytes)}'
+                  '${item.totalBytes > 0 ? ' / ${DownloadsTab._formatBytes(item.totalBytes)}' : ''}',
                   style: TextStyle(
                     color: scheme.onSurfaceVariant,
                     fontSize: 10,
@@ -1615,8 +1618,8 @@ class _DownloadTile extends StatelessWidget {
   }
 }
 
-class _ProfileTab extends StatelessWidget {
-  const _ProfileTab();
+class ProfileTab extends StatelessWidget {
+  const ProfileTab({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -1761,12 +1764,117 @@ class _ProfileTab extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 20),
+        _sectionLabel(context, AppStrings.uiStyle(context)),
+        const SizedBox(height: 8),
+        _SectionCard(
+          children: [
+            BlocBuilder<UiStyleCubit, UiStyle>(
+              builder: (context, style) {
+                return Column(
+                  children: [
+                    _ThemeTile(
+                      mode: ThemeMode.dark,
+                      label: AppStrings.uiClassic(context),
+                      icon: Icons.dashboard_rounded,
+                      isSelected: style == UiStyle.classic,
+                      onTap: () => context
+                          .read<UiStyleCubit>()
+                          .setStyle(UiStyle.classic),
+                    ),
+                    Divider(height: 1, indent: 16, endIndent: 16, color: Colors.white12),
+                    _ThemeTile(
+                      mode: ThemeMode.light,
+                      label: AppStrings.uiQuickplay(context),
+                      icon: Icons.auto_awesome_rounded,
+                      isSelected: style == UiStyle.quickplay,
+                      onTap: () => context
+                          .read<UiStyleCubit>()
+                          .setStyle(UiStyle.quickplay),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        _sectionLabel(context, AppStrings.playback(context)),
+        const SizedBox(height: 8),
+        _SectionCard(
+          children: [
+            BlocBuilder<PlaybackSettingsCubit, PlaybackSettings>(
+              builder: (context, settings) {
+                return Column(
+                  children: [
+                    Padding(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.skip_next_rounded,
+                            color: scheme.primary,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  AppStrings.autoPlayNext(context),
+                                  style: TextStyle(
+                                    color: scheme.onSurface,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  AppStrings.autoPlayNextHint(context),
+                                  style: TextStyle(
+                                    color: scheme.onSurfaceVariant,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: settings.autoPlayNext,
+                            onChanged: (value) => context
+                                .read<PlaybackSettingsCubit>()
+                                .setAutoPlayNext(value),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider(height: 1, indent: 16, endIndent: 16, color: Colors.white12),
+                    _SpeedTile(
+                      speed: settings.defaultSpeed,
+                      onChanged: (value) => context
+                          .read<PlaybackSettingsCubit>()
+                          .setDefaultSpeed(value),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
         _sectionLabel(context, AppStrings.platforms(context)),
         const SizedBox(height: 8),
         _SectionCard(
           children: [
             FutureBuilder(
-              future: sl<DramaRepository>().getNartoProviders(),
+              future: sl<DramaRepository>()
+                  .getNartoProviders()
+                  .catchError((Object _) =>
+                      const NartoProviderCatalog(
+                        providers: [],
+                        activeProvider: '',
+                      )),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const SizedBox.shrink();
                 final providers = snapshot.data!.providers;
@@ -2165,19 +2273,21 @@ class _ThemeTile extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool isSelected;
+  final VoidCallback? onTap;
 
   const _ThemeTile({
     required this.mode,
     required this.label,
     required this.icon,
     required this.isSelected,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return InkWell(
-      onTap: () => context.read<AppThemeCubit>().setThemeMode(mode),
+      onTap: onTap ?? () => context.read<AppThemeCubit>().setThemeMode(mode),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
@@ -2208,11 +2318,64 @@ class _ThemeTile extends StatelessWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
+class _SpeedTile extends StatelessWidget {
+  final double speed;
+  final ValueChanged<double> onChanged;
+
+  const _SpeedTile({required this.speed, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Icon(Icons.speed_rounded, color: scheme.onSurfaceVariant, size: 22),
+          const SizedBox(width: 12),
+          Text(
+            AppStrings.defaultSpeed(context),
+            style: TextStyle(
+              color: scheme.onSurface,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const Spacer(),
+          SizedBox(
+            height: 32,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              shrinkWrap: true,
+              children: [
+                for (final s in speeds)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 6),
+                    child: ChoiceChip(
+                      label: Text(
+                        s == 1.0 ? '1x' : '${s}x',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      selected: speed == s,
+                      visualDensity: VisualDensity.compact,
+                      onSelected: (_) => onChanged(s),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class EmptyState extends StatelessWidget {
   final IconData icon;
   final String message;
 
-  const _EmptyState({required this.icon, required this.message});
+  const EmptyState({super.key, required this.icon, required this.message});
 
   @override
   Widget build(BuildContext context) {

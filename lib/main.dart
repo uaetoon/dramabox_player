@@ -10,6 +10,7 @@ import 'package:dramabox_free/presentation/blocs/history_bloc.dart';
 import 'package:dramabox_free/presentation/blocs/favorites_bloc.dart';
 import 'package:dramabox_free/presentation/blocs/downloads_bloc.dart';
 import 'package:dramabox_free/presentation/blocs/search_bloc.dart';
+import 'package:dramabox_free/presentation/blocs/progressive_search_bloc.dart';
 import 'package:dramabox_free/presentation/cubits/navigation_cubit.dart';
 import 'package:dramabox_free/presentation/cubits/app_language_cubit.dart';
 import 'package:dramabox_free/presentation/cubits/provider_visibility_cubit.dart';
@@ -19,7 +20,10 @@ import 'package:dramabox_free/core/theme/app_theme.dart';
 import 'package:dramabox_free/presentation/cubits/app_theme_cubit.dart';
 import 'package:dramabox_free/presentation/cubits/adult_lock_cubit.dart';
 import 'package:dramabox_free/presentation/cubits/similar_section_cubit.dart';
+import 'package:dramabox_free/presentation/cubits/ui_style_cubit.dart';
+import 'package:dramabox_free/presentation/cubits/playback_settings_cubit.dart';
 import 'package:dramabox_free/presentation/pages/home_page.dart';
+import 'package:dramabox_free/presentation/pages/quickplay_home_page.dart';
 import 'package:dramabox_free/l10n/generated/app_localizations.dart';
 
 void main() async {
@@ -58,6 +62,9 @@ class MyApp extends StatelessWidget {
         BlocProvider<SearchBloc>(
           create: (context) => di.sl<SearchBloc>(),
         ),
+        BlocProvider<ProgressiveSearchBloc>(
+          create: (context) => di.sl<ProgressiveSearchBloc>(),
+        ),
         BlocProvider<NavigationCubit>(
           create: (context) => di.sl<NavigationCubit>(),
         ),
@@ -76,21 +83,34 @@ class MyApp extends StatelessWidget {
         BlocProvider<SimilarSectionCubit>(
           create: (context) => di.sl<SimilarSectionCubit>(),
         ),
+        BlocProvider<UiStyleCubit>(
+          create: (context) => di.sl<UiStyleCubit>(),
+        ),
+        BlocProvider<PlaybackSettingsCubit>(
+          create: (context) => di.sl<PlaybackSettingsCubit>(),
+        ),
       ],
       child: BlocBuilder<AppLanguageCubit, Locale>(
         builder: (context, locale) {
           return BlocBuilder<AppThemeCubit, ThemeMode>(
             builder: (context, themeMode) {
-              return MaterialApp(
-                title: 'UAETooNDrama',
-                debugShowCheckedModeBanner: false,
-                theme: AppTheme.light,
-                darkTheme: AppTheme.dark,
-                themeMode: themeMode,
-                locale: locale,
-                supportedLocales: AppLocalizations.supportedLocales,
-                localizationsDelegates: AppLocalizations.localizationsDelegates,
-                home: const HomePage(),
+              return BlocBuilder<UiStyleCubit, UiStyle>(
+                builder: (context, uiStyle) {
+                  return MaterialApp(
+                    title: 'UAETooNDrama',
+                    debugShowCheckedModeBanner: false,
+                    theme: AppTheme.light,
+                    darkTheme: AppTheme.dark,
+                    themeMode: themeMode,
+                    locale: locale,
+                    supportedLocales: AppLocalizations.supportedLocales,
+                    localizationsDelegates:
+                        AppLocalizations.localizationsDelegates,
+                    home: uiStyle == UiStyle.quickplay
+                        ? const QuickPlayHomePage()
+                        : const HomePage(),
+                  );
+                },
               );
             },
           );
