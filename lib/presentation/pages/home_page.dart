@@ -1020,7 +1020,10 @@ class _SearchTabState extends State<_SearchTab> {
                     message: AppStrings.noResultsFound(context),
                   );
                 }
-                return _SearchGrid(results: state.results);
+                return _SearchGrid(
+                  results: state.results,
+                  nartoProviderKey: state.nartoProviderKey,
+                );
               } else if (state is SearchError) {
                 return _EmptyState(
                   icon: Icons.error_outline_rounded,
@@ -1041,8 +1044,12 @@ class _SearchTabState extends State<_SearchTab> {
 
 class _SearchGrid extends StatelessWidget {
   final List<DramaModel> results;
+  final String nartoProviderKey;
 
-  const _SearchGrid({required this.results});
+  const _SearchGrid({
+    required this.results,
+    this.nartoProviderKey = '',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1062,11 +1069,13 @@ class _SearchGrid extends StatelessWidget {
         return DramaCard(
           drama: drama,
           provider: provider,
+          nartoProviderKey: nartoProviderKey,
           lastWatchedFuture: sl<DramaRepository>().getLastWatchedIndex(
             drama.bookId,
             provider: provider,
           ),
-          onTap: () => _openDetail(context, drama),
+          onTap: () =>
+              _openDetail(context, drama, nartoProviderKey: nartoProviderKey),
         );
       },
     );

@@ -34,10 +34,13 @@ class SearchLoading extends SearchState {}
 class SearchLoaded extends SearchState {
   final String query;
   final List<DramaModel> results;
-  SearchLoaded(this.query, this.results);
+
+  /// The narto provider the search was scoped to ('' when across all).
+  final String nartoProviderKey;
+  SearchLoaded(this.query, this.results, {this.nartoProviderKey = ''});
 
   @override
-  List<Object?> get props => [query, results];
+  List<Object?> get props => [query, results, nartoProviderKey];
 }
 
 class SearchError extends SearchState {
@@ -65,7 +68,8 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
           provider: AppContentProvider.narto,
           nartoProviderKey: event.nartoProviderKey,
         );
-        emit(SearchLoaded(event.query, results));
+        emit(SearchLoaded(event.query, results,
+            nartoProviderKey: event.nartoProviderKey ?? ''));
       } catch (e) {
         emit(SearchError(e.toString()));
       }
