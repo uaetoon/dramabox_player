@@ -59,7 +59,7 @@ class _PlayerPageState extends State<PlayerPage> {
       );
     } else {
       context.read<PlayerBloc>().add(
-        LoadEpisodesEvent(widget.drama.bookId, provider: widget.provider),
+        LoadEpisodesEvent(widget.drama.bookId, provider: widget.provider, nartoProviderKey: widget.nartoProviderKey),
       );
     }
     WakelockPlus.enable();

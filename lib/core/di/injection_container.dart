@@ -7,6 +7,7 @@ import 'package:dramabox_free/core/services/cover_match_service.dart';
 import 'package:dramabox_free/data/datasources/drama_local_data_source.dart';
 import 'package:dramabox_free/data/datasources/download_local_data_source.dart';
 import 'package:dramabox_free/data/datasources/narto_remote_data_source.dart';
+import 'package:dramabox_free/data/datasources/shortwave_remote_data_source.dart';
 import 'package:dramabox_free/data/repositories/drama_repository_impl.dart';
 import 'package:dramabox_free/domain/repositories/drama_repository.dart';
 import 'package:dramabox_free/presentation/blocs/home_bloc.dart';
@@ -62,6 +63,9 @@ Future<void> init() async {
   sl.registerLazySingleton<NartoRemoteDataSource>(
     () => NartoRemoteDataSource(),
   );
+  sl.registerLazySingleton<ShortWaveRemoteDataSource>(
+    () => ShortWaveRemoteDataSource(),
+  );
   sl.registerLazySingleton<DramaLocalDataSource>(
     () => DramaLocalDataSourceImpl(),
   );
@@ -73,6 +77,7 @@ Future<void> init() async {
   sl.registerLazySingleton<DramaRepository>(
     () => DramaRepositoryImpl(
       nartoDataSource: sl(),
+      shortwaveDataSource: sl(),
       localDataSource: sl(),
     ),
   );

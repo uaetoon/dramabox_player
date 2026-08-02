@@ -2,6 +2,7 @@ import 'package:dramabox_free/core/constants/app_enums.dart';
 import 'package:dramabox_free/domain/repositories/drama_repository.dart';
 import 'package:dramabox_free/data/datasources/drama_local_data_source.dart';
 import 'package:dramabox_free/data/datasources/narto_remote_data_source.dart';
+import 'package:dramabox_free/data/datasources/shortwave_remote_data_source.dart';
 import 'package:dramabox_free/data/models/drama_model.dart';
 import 'package:dramabox_free/data/models/drama_section_model.dart';
 import 'package:dramabox_free/data/models/episode_model.dart';
@@ -11,12 +12,29 @@ import 'package:dramabox_free/data/models/narto_provider.dart';
 
 class DramaRepositoryImpl implements DramaRepository {
   final NartoRemoteDataSource nartoDataSource;
+  final ShortWaveRemoteDataSource shortwaveDataSource;
   final DramaLocalDataSource localDataSource;
 
   DramaRepositoryImpl({
     required this.nartoDataSource,
+    required this.shortwaveDataSource,
     required this.localDataSource,
   });
+
+  /// Extra pseudo-provider surfaced in the home provider bar, backed by its own
+  /// data source instead of narto.
+  static const NartoProvider _shortwaveProvider = NartoProvider(
+    key: ShortWaveRemoteDataSource.shortWaveProviderKey,
+    label: 'ShortWave',
+  );
+
+  bool _isShortWave(String? nartoProviderKey) =>
+      nartoProviderKey == ShortWaveRemoteDataSource.shortWaveProviderKey;
+
+  List<NartoProvider> _withShortWave(List<NartoProvider> providers) {
+    if (providers.any((p) => p.key == _shortwaveProvider.key)) return providers;
+    return [...providers, _shortwaveProvider];
+  }
 
   String _getCacheKey(
     String baseKey,
@@ -33,6 +51,9 @@ class DramaRepositoryImpl implements DramaRepository {
     AppContentProvider provider, {
     String? nartoProviderKey,
   }) {
+    if (_isShortWave(nartoProviderKey)) {
+      return shortwaveDataSource.getHomeSections();
+    }
     return nartoDataSource.getHomeSections(providerKey: nartoProviderKey);
   }
 
@@ -48,12 +69,21 @@ class DramaRepositoryImpl implements DramaRepository {
       );
       await localDataSource.cacheSections(cacheKey, data.sections);
     }
-    return data;
+    return NartoHomeData(
+      providers: _withShortWave(data.providers),
+      activeProvider: data.activeProvider,
+      sections: data.sections,
+      sectionsWithKeys: data.sectionsWithKeys,
+    );
   }
 
   @override
   Future<NartoProviderCatalog> getNartoProviders() async {
-    return nartoDataSource.getProviderCatalog();
+    final catalog = await nartoDataSource.getProviderCatalog();
+    return NartoProviderCatalog(
+      providers: _withShortWave(catalog.providers),
+      activeProvider: catalog.activeProvider,
+    );
   }
 
   @override
@@ -192,7 +222,10 @@ class DramaRepositoryImpl implements DramaRepository {
     String query, {
     AppContentProvider provider = AppContentProvider.narto,
     String? nartoProviderKey,
-  }) async {
+  }) {
+    if (_isShortWave(nartoProviderKey)) {
+      return shortwaveDataSource.searchDramas(query);
+    }
     return nartoDataSource.searchDramas(
       query,
       providerKey: nartoProviderKey,
@@ -203,14 +236,20 @@ class DramaRepositoryImpl implements DramaRepository {
   Future<List<EpisodeModel>> getDramaEpisodes(
     String bookId, {
     AppContentProvider provider = AppContentProvider.narto,
+    String? nartoProviderKey,
   }) async {
-    final cacheKey = _getCacheKey(bookId, provider);
+    final cacheKey = _getCacheKey(bookId, provider, nartoProviderKey: nartoProviderKey);
     final cached = await localDataSource.getEpisodes(cacheKey);
     if (cached != null && cached.isNotEmpty) {
       return cached;
     }
 
-    final remoteEpisodes = await nartoDataSource.getDramaEpisodes(bookId);
+    final List<EpisodeModel> remoteEpisodes;
+    if (_isShortWave(nartoProviderKey)) {
+      remoteEpisodes = await shortwaveDataSource.getDramaEpisodes(bookId);
+    } else {
+      remoteEpisodes = await nartoDataSource.getDramaEpisodes(bookId);
+    }
     await localDataSource.cacheEpisodes(cacheKey, remoteEpisodes);
     return remoteEpisodes;
   }

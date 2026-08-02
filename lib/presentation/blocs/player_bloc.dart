@@ -17,10 +17,15 @@ abstract class PlayerEvent extends Equatable {
 class LoadEpisodesEvent extends PlayerEvent {
   final String bookId;
   final AppContentProvider provider;
-  LoadEpisodesEvent(this.bookId, {this.provider = AppContentProvider.narto});
+  final String nartoProviderKey;
+  LoadEpisodesEvent(
+    this.bookId, {
+    this.provider = AppContentProvider.narto,
+    this.nartoProviderKey = '',
+  });
 
   @override
-  List<Object?> get props => [bookId, provider];
+  List<Object?> get props => [bookId, provider, nartoProviderKey];
 }
 
 class LoadLocalEpisodesEvent extends PlayerEvent {
@@ -136,6 +141,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
         final episodes = await repository.getDramaEpisodes(
           event.bookId,
           provider: event.provider,
+          nartoProviderKey: event.nartoProviderKey,
         );
         final initialIndex = await repository.getLastWatchedIndex(
           event.bookId,

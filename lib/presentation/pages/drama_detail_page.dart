@@ -58,6 +58,7 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
     final episodes = await repo.getDramaEpisodes(
       widget.drama.bookId,
       provider: widget.provider,
+      nartoProviderKey: widget.nartoProviderKey,
     );
     final lastIndex = widget.startIndex ??
         await repo.getLastWatchedIndex(

@@ -50,6 +50,7 @@ abstract class DramaRepository {
   Future<List<EpisodeModel>> getDramaEpisodes(
     String bookId, {
     AppContentProvider provider = AppContentProvider.narto,
+    String? nartoProviderKey,
   });
   Future<void> saveLastWatchedIndex(
     String bookId,
