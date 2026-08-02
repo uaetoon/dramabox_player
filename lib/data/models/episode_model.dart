@@ -34,6 +34,10 @@ class EpisodeModel extends Equatable {
   final String chapterId;
   final String chapterName;
   final String videoUrl;
+
+  /// Secondary source (e.g. narto's own cached mirror) to try when the primary
+  /// [videoUrl] fails to load. Empty when no alternative exists.
+  final String alternateVideoUrl;
   final String chapterImg;
   final List<SubtitleModel> subtitles;
   final bool isPlayable;
@@ -43,6 +47,7 @@ class EpisodeModel extends Equatable {
     required this.chapterName,
     required this.videoUrl,
     required this.chapterImg,
+    this.alternateVideoUrl = '',
     this.subtitles = const [],
     this.isPlayable = true,
   });
@@ -69,6 +74,12 @@ class EpisodeModel extends Equatable {
     extractSubtitles('subLanguageVoList');
     extractSubtitles('captionList');
 
+    // Secondary source (narto's own mirror) used as a fallback when the primary
+    // video URL is unreachable/expired.
+    final alternateUrl = json['alternateVideoUrl']?.toString() ??
+        json['direct_play_url']?.toString() ??
+        '';
+
     // Direct videoUrl (already parsed)
     final directUrl = json['videoUrl']?.toString() ?? '';
     if (directUrl.isNotEmpty) {
@@ -82,6 +93,7 @@ class EpisodeModel extends Equatable {
             json['episodeName'] ??
             'Episode ${json['episodeNo'] ?? json['sort'] ?? ''}',
         videoUrl: directUrl,
+        alternateVideoUrl: alternateUrl == directUrl ? '' : alternateUrl,
         chapterImg: json['chapterImg'] ??
             json['cover'] ??
             json['episodeCover'] ??
@@ -107,6 +119,7 @@ class EpisodeModel extends Equatable {
             json['name'] ??
             'Episode ${json['episodeNo'] ?? ''}',
         videoUrl: foundUrl,
+        alternateVideoUrl: alternateUrl == foundUrl ? '' : alternateUrl,
         chapterImg: json['episodeCover'] ??
             json['chapterImg'] ??
             json['cover'] ??
@@ -152,6 +165,7 @@ class EpisodeModel extends Equatable {
           json['episodeName'] ??
           'Episode ${json['episodeNo'] ?? json['sort'] ?? ''}',
       videoUrl: foundUrl,
+      alternateVideoUrl: alternateUrl == foundUrl ? '' : alternateUrl,
       chapterImg: json['chapterImg'] ??
           json['cover'] ??
           json['episodeCover'] ??
@@ -167,6 +181,7 @@ class EpisodeModel extends Equatable {
       'chapterId': chapterId,
       'chapterName': chapterName,
       'videoUrl': videoUrl,
+      'alternateVideoUrl': alternateVideoUrl,
       'chapterImg': chapterImg,
       'subtitles': subtitles.map((e) => e.toJson()).toList(),
       'isPlayable': isPlayable,
@@ -178,6 +193,7 @@ class EpisodeModel extends Equatable {
     chapterId,
     chapterName,
     videoUrl,
+    alternateVideoUrl,
     chapterImg,
     subtitles,
     isPlayable,

@@ -253,6 +253,7 @@ class NartoRemoteDataSource {
 
       final playUrl =
           e['play_url']?.toString() ?? e['direct_play_url']?.toString() ?? '';
+      final directUrl = e['direct_play_url']?.toString() ?? '';
 
       final subtitles = _extractSubtitles(e);
       episodes.add(
@@ -264,6 +265,7 @@ class NartoRemoteDataSource {
               e['number']?.toString() ??
               'EP ${i + 1}',
           videoUrl: playUrl,
+          alternateVideoUrl: directUrl == playUrl ? '' : directUrl,
           chapterImg: e['thumb_url']?.toString() ?? '',
           subtitles: subtitles,
           isPlayable: playUrl.isNotEmpty,

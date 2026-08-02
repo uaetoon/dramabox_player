@@ -97,6 +97,10 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
   String? _lastErrorDescription;
   Duration _recoveryPosition = Duration.zero;
 
+  // When the primary source keeps failing, fall back to the alternate source
+  // (narto's own mirror) before showing the error UI.
+  bool _usedAlternateUrl = false;
+
   // Subtitle state
   SubtitleModel? _selectedSubtitle;
   List<Caption> _captions = [];
@@ -180,7 +184,10 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
         debugPrint('DIAG playing downloaded file for ${widget.episode.chapterId}');
         player = CachedVideoPlayerPlus.file(localFile);
       } else {
-        String videoUrl = widget.episode.videoUrl;
+        String videoUrl = _usedAlternateUrl
+            ? widget.episode.alternateVideoUrl
+            : widget.episode.videoUrl;
+        debugPrint('DIAG raw videoUrl: $videoUrl');
 
         // Narto episodes are non-faststart MP4s (moov atom at the end) that
         // ExoPlayer cannot stream progressively, so the proxy reassembles them
@@ -258,6 +265,24 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) _initializeController();
         });
+      } else if (!_usedAlternateUrl &&
+          widget.episode.alternateVideoUrl.isNotEmpty) {
+        // Primary source is persistently failing (expired token, dead CDN, ...);
+        // switch to the alternate mirror and give it a fresh retry budget.
+        debugPrint(
+          'DIAG switching to alternate video URL '
+          '${widget.episode.alternateVideoUrl}',
+        );
+        _usedAlternateUrl = true;
+        _retryAttempts = 0;
+        setState(() {
+          _isInitializing = false;
+          _hasError = false;
+          _errorMessage = '';
+        });
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) _initializeController();
+        });
       } else {
         setState(() {
           _hasError = true;
@@ -270,6 +295,36 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
 
   Future<void> _recoverFromError() async {
     if (_retryAttempts >= _maxRetries) {
+      if (mounted && !_usedAlternateUrl &&
+          widget.episode.alternateVideoUrl.isNotEmpty) {
+        // Primary source keeps failing mid-playback; switch to the alternate
+        // mirror with a fresh retry budget instead of showing the error UI.
+        debugPrint(
+          'DIAG runtime recovery switching to alternate URL '
+          '${widget.episode.alternateVideoUrl}',
+        );
+        _usedAlternateUrl = true;
+        _retryAttempts = 0;
+        final resumePosition = _recoveryPosition;
+        _player?.dispose();
+        _player = null;
+        setState(() {
+          _recovering = false;
+          _isInitialized = false;
+          _isInitializing = false;
+          _hasError = false;
+          _errorMessage = '';
+          _isBuffering = false;
+        });
+        await Future.delayed(const Duration(seconds: 1));
+        if (!mounted) return;
+        await _initializeController();
+        if (mounted && _isInitialized && _player != null &&
+            resumePosition > Duration.zero) {
+          _player!.controller.seekTo(resumePosition);
+        }
+        return;
+      }
       if (mounted) {
         setState(() {
           _recovering = false;
@@ -730,6 +785,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
       _lastErrorDescription = null;
       _recovering = false;
       _isBuffering = false;
+      _usedAlternateUrl = false;
       _player?.dispose();
       _player = null;
       _captions = [];
