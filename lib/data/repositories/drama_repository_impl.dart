@@ -33,13 +33,38 @@ class DramaRepositoryImpl implements DramaRepository {
     label: 'DramaFren Box',
   );
 
+  static const NartoProvider _shortflixProvider = NartoProvider(
+    key: ShortWaveRemoteDataSource.shortflixProviderKey,
+    label: 'ShortFlix',
+  );
+
+  static const NartoProvider _shortdizilabProvider = NartoProvider(
+    key: ShortWaveRemoteDataSource.shortdizilabProviderKey,
+    label: 'ShortDiziLab',
+  );
+
+  static const NartoProvider _dramaexpressProvider = NartoProvider(
+    key: ShortWaveRemoteDataSource.dramaexpressProviderKey,
+    label: 'DramaExpress',
+  );
+
   bool _isEmbeddedSite(String? nartoProviderKey) =>
       nartoProviderKey == ShortWaveRemoteDataSource.shortWaveProviderKey ||
-      nartoProviderKey == ShortWaveRemoteDataSource.dramafrenDramaboxProviderKey;
+      nartoProviderKey ==
+          ShortWaveRemoteDataSource.dramafrenDramaboxProviderKey ||
+      nartoProviderKey == ShortWaveRemoteDataSource.shortflixProviderKey ||
+      nartoProviderKey == ShortWaveRemoteDataSource.shortdizilabProviderKey ||
+      nartoProviderKey == ShortWaveRemoteDataSource.dramaexpressProviderKey;
 
   List<NartoProvider> _withEmbeddedSites(List<NartoProvider> providers) {
     final result = [...providers];
-    for (final p in [_shortwaveProvider, _dramafrenDramaboxProvider]) {
+    for (final p in [
+      _shortwaveProvider,
+      _dramafrenDramaboxProvider,
+      _shortflixProvider,
+      _shortdizilabProvider,
+      _dramaexpressProvider,
+    ]) {
       if (!result.any((e) => e.key == p.key)) result.add(p);
     }
     return result;

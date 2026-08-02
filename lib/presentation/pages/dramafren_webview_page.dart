@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-/// The drama sites on the dramafren network are Cloudflare-protected against
-/// plain HTTP clients but work fine in a real browser, so the app embeds them
-/// in a visible WebView. Each site is a complete SPA (grid, search, detail,
-/// player), so browsing and playback work with zero API scraping.
+/// The drama sites embedded here (dramafren network plus free aggregators) are
+/// delivered as full SPAs (grid, search, detail, player) that work in a real
+/// browser but are hostile to plain HTTP scraping, so the app hosts them in a
+/// visible WebView. Browsing and playback work with zero API scraping.
 const Map<String, String> dramafrenSites = {
   'shortwave': 'https://shortwave.dramafren.org',
   'dramafren_dramabox': 'https://dramabox.dramafren.org',
+  'shortflix': 'https://www.shortflix.net/ar',
+  'shortdizilab': 'https://shortdizilab.com/ar',
+  'dramaexpress': 'https://dramaexpress.net/ar',
 };
 
 bool isDramafrenEmbeddedProvider(String key) => dramafrenSites.containsKey(key);
@@ -19,18 +22,31 @@ String dramafrenSiteTitle(String siteKey) {
       return 'DramaFren Box';
     case 'shortwave':
       return 'ShortWave';
+    case 'shortflix':
+      return 'ShortFlix';
+    case 'shortdizilab':
+      return 'ShortDiziLab';
+    case 'dramaexpress':
+      return 'DramaExpress';
     default:
       return 'DramaFren';
   }
 }
 
 /// Builds the detail deep-link path for a site.
-/// shortwave uses `?id=..&slug=..`; dramabox uses `index.php?page=detail&id=..&slug=..`.
+/// shortwave uses `?id=..&slug=..`; dramabox uses `index.php?page=detail&id=..&slug=..`;
+/// the Next.js aggregators use `/ar/series/<slug>` (the base URL already
+/// includes the `/ar` locale, so the returned path starts at `series/`).
 String dramafrenDetailPath(String siteKey, String bookId, String title) {
   final slug = title.toLowerCase().replaceAll(RegExp('[^a-z0-9]+'), '-');
   final cleanSlug = slug.replaceAll(RegExp(r'^-+|-+$'), '');
   if (siteKey == 'dramafren_dramabox') {
     return 'index.php?page=detail&id=$bookId&slug=$cleanSlug';
+  }
+  if (siteKey == 'shortflix' ||
+      siteKey == 'shortdizilab' ||
+      siteKey == 'dramaexpress') {
+    return 'series/$cleanSlug';
   }
   return 'id=$bookId&slug=$cleanSlug';
 }

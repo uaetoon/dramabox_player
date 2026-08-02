@@ -18,6 +18,13 @@ class ShortWaveRemoteDataSource {
   /// (dramabox.dramafren.org), embedded as a WebView like ShortWave.
   static const String dramafrenDramaboxProviderKey = 'dramafren_dramabox';
 
+  /// Free multi-source aggregators served as embedded WebViews.
+  /// ShortFlix is free after a login; ShortDiziLab and DramaExpress aggregate
+  /// multiple vertical-drama catalogs.
+  static const String shortflixProviderKey = 'shortflix';
+  static const String shortdizilabProviderKey = 'shortdizilab';
+  static const String dramaexpressProviderKey = 'dramaexpress';
+
   Future<List<DramaSectionModel>> getHomeSections() async => const [];
 
   Future<List<DramaModel>> searchDramas(String query) async => const [];
