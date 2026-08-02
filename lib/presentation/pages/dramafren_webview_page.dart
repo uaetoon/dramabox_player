@@ -214,43 +214,60 @@ class _DramafrenWebViewPageState extends State<DramafrenWebViewPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(dramafrenSiteTitle(_siteKey)),
-        actions: [
-          IconButton(
-            tooltip: 'Paste DramaBox link',
-            icon: const Icon(Icons.link_rounded),
-            onPressed: _showPasteDialog,
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          WebViewWidget(controller: _controller),
-          if (_loading && !_error)
-            const Center(child: CircularProgressIndicator()),
-          if (_error)
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Failed to load. Check your connection.'),
-                  const SizedBox(height: 12),
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        _error = false;
-                        _loading = true;
-                      });
-                      _load(widget.initialPath);
-                    },
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final navigator = Navigator.of(context);
+        final canPop = navigator.canPop();
+        if (await _controller.canGoBack()) {
+          await _controller.goBack();
+          return;
+        }
+        if (canPop) {
+          navigator.pop(result);
+        } else {
+          SystemNavigator.pop();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(dramafrenSiteTitle(_siteKey)),
+          actions: [
+            IconButton(
+              tooltip: 'Paste DramaBox link',
+              icon: const Icon(Icons.link_rounded),
+              onPressed: _showPasteDialog,
             ),
-        ],
+          ],
+        ),
+        body: Stack(
+          children: [
+            WebViewWidget(controller: _controller),
+            if (_loading && !_error)
+              const Center(child: CircularProgressIndicator()),
+            if (_error)
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Failed to load. Check your connection.'),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _error = false;
+                          _loading = true;
+                        });
+                        _load(widget.initialPath);
+                      },
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
