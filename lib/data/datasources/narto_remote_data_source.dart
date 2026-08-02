@@ -30,17 +30,23 @@ class NartoRemoteDataSource {
 
   static const String _lang = 'ar-SA';
 
-  /// Providers that should serve the full (English) catalog instead of the
-  /// Arabic-localized one. On the site, switching DramaBox to English shows
-  /// every drama (including Arabic ones); the `ar-SA` feed only surfaces a
-  /// subset of Indonesian/Arabic titles.
+  /// Language code for providers whose feed has no Arabic content at all. On
+  /// the site, switching such a provider to English shows every drama
+  /// (including Arabic ones); the `ar-SA` feed only surfaces a subset of
+  /// untranslated (Indonesian/English) titles.
   static const String _fullCatalogLang = 'en-US';
 
-  /// The narto API language code for a provider. DramaBox uses English so the
-  /// whole catalog is listed; every other provider stays Arabic.
+  /// Provider keys (lowercased) whose `ar-SA` feed contains no Arabic titles
+  /// and therefore serve the full `en-US` catalog. Populated dynamically the
+  /// first time each provider's home data is loaded.
+  final Set<String> _fullCatalogProviders = {};
+
+  /// The narto API language code for a provider. Once a provider is detected
+  /// to have no Arabic content it uses English so the whole catalog is listed;
+  /// every other provider stays Arabic.
   String _langFor(String? providerKey) {
     final key = providerKey?.toLowerCase() ?? '';
-    if (key == 'dramabox') return _fullCatalogLang;
+    if (_fullCatalogProviders.contains(key)) return _fullCatalogLang;
     return _lang;
   }
 
@@ -69,8 +75,8 @@ class NartoRemoteDataSource {
       queryParameters: {
         if (providerKey != null && providerKey.isNotEmpty)
           'provider': providerKey,
-        'lang': _langFor(providerKey),
-        'target_lang': _langFor(providerKey),
+        'lang': _lang,
+        'target_lang': _lang,
       },
       options: Options(responseType: ResponseType.plain),
     );
@@ -78,81 +84,39 @@ class NartoRemoteDataSource {
     if (body.isEmpty) {
       return const NartoHomeData(providers: [], activeProvider: '', sections: []);
     }
-    final data = await compute(_parseHomeJson, body);
+    var data = await compute(_parseHomeJson, body);
     debugPrint(
       'Narto: loaded ${data.providers.length} providers, active=${data.activeProvider}, ${data.sections.length} sections',
     );
-    // Some providers (e.g. DramaBox) are served by the ar-SA JSON feed with
-    // untranslated (Indonesian) titles. The server-rendered HTML grid is
-    // localized, so fall back to it to keep the feed Arabic. Providers that
-    // use the full English catalog (DramaBox) keep their JSON feed instead.
-    if (_langFor(providerKey) == _lang && !_hasArabicSections(data.sections)) {
-      final arabicSections = await _scrapeArabicHomeSections(providerKey);
-      if (arabicSections != null && arabicSections.isNotEmpty) {
-        final count = arabicSections.fold<int>(
-          0,
-          (n, s) => n + s.dramas.length,
-        );
-        debugPrint(
-          'Narto: provider $providerKey served non-Arabic JSON feed, '
-          'using Arabic HTML grid ($count dramas)',
-        );
-        return NartoHomeData(
-          providers: data.providers,
-          activeProvider: data.activeProvider,
-          sections: arabicSections,
-          sectionsWithKeys: data.sectionsWithKeys,
-        );
+    // Providers without any Arabic content serve the full English catalog so
+    // every drama is listed; the ar-SA feed only surfaces a subset of
+    // untranslated (Indonesian/English) titles.
+    if (!_hasArabicSections(data.sections)) {
+      final key = providerKey?.toLowerCase() ?? '';
+      _fullCatalogProviders.add(key);
+      final englishResponse = await dio.get<String>(
+        '/home/providers/sections',
+        queryParameters: {
+          if (providerKey != null && providerKey.isNotEmpty)
+            'provider': providerKey,
+          'lang': _fullCatalogLang,
+          'target_lang': _fullCatalogLang,
+        },
+        options: Options(responseType: ResponseType.plain),
+      );
+      final englishBody = englishResponse.data ?? '';
+      if (englishBody.isNotEmpty) {
+        final englishData = await compute(_parseHomeJson, englishBody);
+        if (englishData.sections.isNotEmpty) {
+          data = englishData;
+          debugPrint(
+            'Narto: provider $providerKey has no Arabic feed, '
+            'using full English catalog (${englishData.sections.length} sections)',
+          );
+        }
       }
     }
     return data;
-  }
-
-  /// Fetches the server-rendered home page for a provider, which localizes
-  /// drama titles, and parses its grid of `<article class="card">` items.
-  Future<List<DramaSectionModel>?> _scrapeArabicHomeSections(
-    String? providerKey,
-  ) async {
-    try {
-      final baseQuery = <String, String>{
-        if (providerKey != null && providerKey.isNotEmpty)
-          'provider': providerKey,
-        'lang': _langFor(providerKey),
-        'target_lang': _langFor(providerKey),
-      };
-      final dramas = <DramaModel>[];
-      // The localized home grid is paginated (24 cards per page). Follow the
-      // pager for a few pages to surface more Arabic titles.
-      const maxPages = 3;
-      for (var page = 1; page <= maxPages; page++) {
-        final response = await dio.get<String>(
-          '/',
-          queryParameters: {
-            ...baseQuery,
-            if (page > 1) 'page': page,
-          },
-          options: Options(responseType: ResponseType.plain),
-        );
-        final html = response.data ?? '';
-        if (html.isEmpty) break;
-        final pageDramas = _parseHomeGridDramas(html);
-        if (pageDramas.isEmpty) break;
-        final before = dramas.length;
-        for (final drama in pageDramas) {
-          if (!dramas.any((d) => d.bookId == drama.bookId)) {
-            dramas.add(drama);
-          }
-        }
-        if (dramas.length == before || !_hasNextGridPage(html)) break;
-      }
-      if (dramas.isEmpty) return null;
-      return [
-        DramaSectionModel(name: 'For You', dramas: dramas, hasMore: false),
-      ];
-    } catch (e) {
-      debugPrint('Narto: Arabic home grid scrape failed for $providerKey: $e');
-      return null;
-    }
   }
 
   /// Returns raw sections retaining tab key/label for a provider.
@@ -380,46 +344,6 @@ DramaModel _dramaFromJson(Map<String, dynamic> json) {
   );
 }
 
-/// Extracts the server-rendered (Arabic) drama cards from home HTML.
-List<DramaModel> _parseHomeGridDramas(String html) {
-  final dramaPattern = RegExp(
-    r'<article\s+class="card"[\s\S]*?data-watch-url="([^"]+)"'
-    r'[\s\S]*?data-movie-title="([^"]+)"'
-    r'[\s\S]*?<img class="poster" src="([^"]+)"',
-  );
-  final dramas = <DramaModel>[];
-  for (final match in dramaPattern.allMatches(html)) {
-    final watchUrl = match.group(1)?.replaceAll('&amp;', '&') ?? '';
-    final title = _decodeHtmlEntities(
-      match.group(2)?.replaceAll('&amp;', '&') ?? '',
-    );
-    var cover = match.group(3) ?? '';
-    if (watchUrl.isEmpty || title.isEmpty) continue;
-    if (!cover.startsWith('http')) {
-      cover = 'https://narto-drama.com${cover.startsWith('/') ? cover : '/$cover'}';
-    }
-    dramas.add(
-      DramaModel(
-        bookId: watchUrl,
-        bookName: title,
-        coverWap: cover,
-        introduction: '',
-        tags: const [],
-        protagonist: '',
-        chapterCount: 0,
-      ),
-    );
-  }
-  return dramas;
-}
-
-/// True when the home grid HTML has a "next page" pager link.
-bool _hasNextGridPage(String html) {
-  return RegExp(
-    r'class="pager-link"[^>]*href="[^"]*page=\d+"',
-  ).hasMatch(html);
-}
-
 /// Returns true when any section drama title contains Arabic script.
 bool _hasArabicSections(List<DramaSectionModel> sections) {
   final arabic = RegExp(r'[\u0600-\u06FF]');
@@ -429,14 +353,6 @@ bool _hasArabicSections(List<DramaSectionModel> sections) {
     }
   }
   return false;
-}
-
-String _decodeHtmlEntities(String value) {
-  return value
-      .replaceAll('&quot;', '"')
-      .replaceAll('&#39;', "'")
-      .replaceAll('&lt;', '<')
-      .replaceAll('&gt;', '>');
 }
 
 /// Decodes + maps a `/home/providers/sections` payload off the main isolate.
