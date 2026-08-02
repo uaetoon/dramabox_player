@@ -282,7 +282,10 @@ class DramaRepositoryImpl implements DramaRepository {
     if (_isEmbeddedSite(nartoProviderKey)) {
       remoteEpisodes = await shortwaveDataSource.getDramaEpisodes(bookId);
     } else {
-      remoteEpisodes = await nartoDataSource.getDramaEpisodes(bookId);
+      remoteEpisodes = await nartoDataSource.getDramaEpisodes(
+        bookId,
+        providerKey: nartoProviderKey,
+      );
     }
     if (remoteEpisodes.isNotEmpty) {
       await localDataSource.cacheEpisodes(cacheKey, remoteEpisodes);

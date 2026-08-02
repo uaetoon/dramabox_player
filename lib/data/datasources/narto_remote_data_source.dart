@@ -30,6 +30,20 @@ class NartoRemoteDataSource {
 
   static const String _lang = 'ar-SA';
 
+  /// Providers that should serve the full (English) catalog instead of the
+  /// Arabic-localized one. On the site, switching DramaBox to English shows
+  /// every drama (including Arabic ones); the `ar-SA` feed only surfaces a
+  /// subset of Indonesian/Arabic titles.
+  static const String _fullCatalogLang = 'en-US';
+
+  /// The narto API language code for a provider. DramaBox uses English so the
+  /// whole catalog is listed; every other provider stays Arabic.
+  String _langFor(String? providerKey) {
+    final key = providerKey?.toLowerCase() ?? '';
+    if (key == 'dramabox') return _fullCatalogLang;
+    return _lang;
+  }
+
   Future<NartoProviderCatalog> getProviderCatalog() async {
     final cached = _cachedCatalog;
     if (cached != null) return cached;
@@ -55,8 +69,8 @@ class NartoRemoteDataSource {
       queryParameters: {
         if (providerKey != null && providerKey.isNotEmpty)
           'provider': providerKey,
-        'lang': _lang,
-        'target_lang': _lang,
+        'lang': _langFor(providerKey),
+        'target_lang': _langFor(providerKey),
       },
       options: Options(responseType: ResponseType.plain),
     );
@@ -68,10 +82,11 @@ class NartoRemoteDataSource {
     debugPrint(
       'Narto: loaded ${data.providers.length} providers, active=${data.activeProvider}, ${data.sections.length} sections',
     );
-    // Some providers (e.g. DramaBox) are served by the JSON feed with
+    // Some providers (e.g. DramaBox) are served by the ar-SA JSON feed with
     // untranslated (Indonesian) titles. The server-rendered HTML grid is
-    // localized, so fall back to it to keep the feed Arabic.
-    if (!_hasArabicSections(data.sections)) {
+    // localized, so fall back to it to keep the feed Arabic. Providers that
+    // use the full English catalog (DramaBox) keep their JSON feed instead.
+    if (_langFor(providerKey) == _lang && !_hasArabicSections(data.sections)) {
       final arabicSections = await _scrapeArabicHomeSections(providerKey);
       if (arabicSections != null && arabicSections.isNotEmpty) {
         final count = arabicSections.fold<int>(
@@ -102,8 +117,8 @@ class NartoRemoteDataSource {
       final baseQuery = <String, String>{
         if (providerKey != null && providerKey.isNotEmpty)
           'provider': providerKey,
-        'lang': _lang,
-        'target_lang': _lang,
+        'lang': _langFor(providerKey),
+        'target_lang': _langFor(providerKey),
       };
       final dramas = <DramaModel>[];
       // The localized home grid is paginated (24 cards per page). Follow the
@@ -159,7 +174,7 @@ class NartoRemoteDataSource {
       queryParameters: {
         'q': query,
         'limit': 50,
-        'lang': _lang,
+        'lang': _langFor(providerKey),
         if (providerKey != null && providerKey.isNotEmpty)
           'providers': providerKey,
       },
@@ -224,7 +239,10 @@ class NartoRemoteDataSource {
     return result;
   }
 
-  Future<List<EpisodeModel>> getDramaEpisodes(String watchUrl) async {
+  Future<List<EpisodeModel>> getDramaEpisodes(
+    String watchUrl, {
+    String? providerKey,
+  }) async {
     final slug = await _resolveSlug(watchUrl);
     if (slug == null) {
       debugPrint('Narto: failed to resolve slug for $watchUrl');
@@ -233,7 +251,7 @@ class NartoRemoteDataSource {
 
     final response = await dio.get<String>(
       '/detail/watch/$slug/1',
-      queryParameters: {'lang': _lang},
+      queryParameters: {'lang': _langFor(providerKey)},
       options: Options(responseType: ResponseType.plain),
     );
     final html = response.data ?? '';
