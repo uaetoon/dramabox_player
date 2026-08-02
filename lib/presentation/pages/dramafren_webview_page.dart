@@ -110,6 +110,7 @@ class _DramafrenWebViewPageState extends State<DramafrenWebViewPage> {
   late final WebViewController _controller;
   bool _loading = true;
   bool _error = false;
+  bool _autoOpenPending = false;
 
   @override
   void initState() {
@@ -125,8 +126,14 @@ class _DramafrenWebViewPageState extends State<DramafrenWebViewPage> {
               _error = false;
             });
           },
-          onPageFinished: (_) {
+          onPageFinished: (url) {
             if (mounted) setState(() => _loading = false);
+            if (_autoOpenPending && url.contains('page=search_result')) {
+              _autoOpenPending = false;
+              Future.delayed(const Duration(milliseconds: 1500), () {
+                if (mounted) _autoOpenFirstResult();
+              });
+            }
           },
           onWebResourceError: (err) {
             if (err.isForMainFrame == true &&
@@ -212,6 +219,74 @@ class _DramafrenWebViewPageState extends State<DramafrenWebViewPage> {
     ).showSnackBar(const SnackBar(content: Text('Could not read that link.')));
   }
 
+  bool get _searchSupported => _siteKey == 'dramafren_dramabox';
+
+  Future<void> _showSearchDialog() async {
+    final controller = TextEditingController();
+    final entered = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Search dramas'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textInputAction: TextInputAction.search,
+          autocorrect: false,
+          decoration: const InputDecoration(
+            hintText: 'Type drama title...',
+            prefixIcon: Icon(Icons.search),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Search'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (entered == null || entered.isEmpty) return;
+    _openSearch(entered);
+  }
+
+  void _openSearch(String query) {
+    final url =
+        '${widget.baseUrl}/index.php?page=search_result'
+        '&q=${Uri.encodeQueryComponent(query)}&lang=en';
+    _autoOpenPending = true;
+    _controller.loadRequest(Uri.parse(url));
+  }
+
+  /// After a search loads, auto-open the top (best) match so the drama is
+  /// ready to play; Back then returns to the site (the SPA re-serves its home
+  /// when a search page is restored via history).
+  void _autoOpenFirstResult() {
+    const js = r'''
+      (()=>{
+        const a = document.querySelector('a[href*="page=detail"]');
+        if(!a) return 'NONE';
+        a.click();
+        return 'OPEN';
+      })()
+    ''';
+    _controller
+        .runJavaScriptReturningResult(js)
+        .then((v) {
+          if ((v as String?) == '"NONE"' && mounted) {
+            Future.delayed(const Duration(milliseconds: 700), () {
+              if (mounted) _autoOpenFirstResult();
+            });
+          }
+        })
+        .catchError((_) {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -234,6 +309,12 @@ class _DramafrenWebViewPageState extends State<DramafrenWebViewPage> {
         appBar: AppBar(
           title: Text(dramafrenSiteTitle(_siteKey)),
           actions: [
+            if (_searchSupported)
+              IconButton(
+                tooltip: 'Search dramas',
+                icon: const Icon(Icons.search),
+                onPressed: _showSearchDialog,
+              ),
             IconButton(
               tooltip: 'Paste DramaBox link',
               icon: const Icon(Icons.link_rounded),
