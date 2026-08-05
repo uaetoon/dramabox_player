@@ -11,7 +11,7 @@ class UiStyleCubit extends Cubit<UiStyle> {
   static const String _boxName = 'settings';
   static const String _key = 'uiStyle';
 
-  UiStyleCubit() : super(UiStyle.classic) {
+  UiStyleCubit() : super(UiStyle.quickplay) {
     _load();
   }
 
@@ -21,7 +21,7 @@ class UiStyleCubit extends Cubit<UiStyle> {
     try {
       if (Hive.isBoxOpen(_boxName)) {
         final value =
-            Hive.box(_boxName).get(_key, defaultValue: 'classic') as String;
+            Hive.box(_boxName).get(_key, defaultValue: 'quickplay') as String;
         emit(_fromName(value));
       }
     } catch (e) {

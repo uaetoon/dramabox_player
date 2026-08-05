@@ -29,11 +29,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
 
-    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Search'), findsOneWidget);
     expect(find.text('My List'), findsOneWidget);
     expect(find.text('Downloads'), findsOneWidget);
-    expect(find.text('Profile'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
   });
 }

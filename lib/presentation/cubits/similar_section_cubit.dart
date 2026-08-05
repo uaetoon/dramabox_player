@@ -5,12 +5,12 @@ import 'package:hive_flutter/hive_flutter.dart';
 /// Toggles the "Similar on other platforms" row shown on drama detail pages.
 ///
 /// The setting persists in the `settings` Hive box so it survives app
-/// restarts. Enabled by default.
+/// restarts. Disabled by default.
 class SimilarSectionCubit extends Cubit<bool> {
   static const String _boxName = 'settings';
   static const String _enabledKey = 'similarEnabled';
 
-  SimilarSectionCubit() : super(true) {
+  SimilarSectionCubit() : super(false) {
     _load();
   }
 
@@ -20,7 +20,7 @@ class SimilarSectionCubit extends Cubit<bool> {
     try {
       if (Hive.isBoxOpen(_boxName)) {
         final box = Hive.box(_boxName);
-        final value = box.get(_enabledKey, defaultValue: true) as bool;
+        final value = box.get(_enabledKey, defaultValue: false) as bool;
         emit(value);
       }
     } catch (e) {
